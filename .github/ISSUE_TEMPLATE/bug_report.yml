@@ -1,0 +1,41 @@
+name: Bug report
+description: Report unexpected scanner or popup behavior
+title: "Bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Please redact personal information, private playlist URLs, account IDs, tokens, cookies, and passwords."
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      placeholder: 1.0
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 130 on Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Do not share account identifiers or private playlist URLs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

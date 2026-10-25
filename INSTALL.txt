@@ -1,0 +1,19 @@
+Apple Music Duplicate Finder — Chromium Extension
+
+INSTALL
+1. Extract the release ZIP into a folder you intend to keep.
+2. In Chrome, open chrome://extensions (Edge: edge://extensions).
+3. Enable Developer mode and choose Load unpacked.
+4. Select the extracted folder containing manifest.json.
+5. Open https://music.apple.com, sign in, and open a playlist.
+6. Click the extension icon, check the Current playlist name, then Scan for Duplicates.
+7. Keep the popup open until the scan finishes. Closing it discards the scan.
+
+UPDATE
+Extract the latest release ZIP into the same folder and click Reload on the Extensions page.
+Unpacked extensions installed from GitHub do not automatically update.
+
+This is a free, read-only tool. It finds exact duplicated song entries but never
+removes or edits them. Playlist metadata stays in browser memory.
+
+Independent project; not affiliated with Apple Inc.

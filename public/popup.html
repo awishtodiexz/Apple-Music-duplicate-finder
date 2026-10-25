@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Apple Music Duplicate Finder</title>
+    <link rel="stylesheet" href="popup.css">
+    <script type="module" src="popup.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">READ-ONLY PLAYLIST SCANNER</div>
+        <h1>Apple Music<br> <span>Duplicate Finder</span></h1>
+      </header>
+      <section class="playlist" aria-labelledby="playlist-label">
+        <h2 id="playlist-label">Current playlist</h2>
+        <p id="playlist-name">Detecting playlist…</p>
+      </section>
+      <button id="scan" type="button" disabled>Scan for Duplicates</button>
+      <section id="status" aria-live="polite" aria-atomic="true">
+        <h2 id="status-title">Connecting to Apple Music…</h2>
+        <p id="status-detail">Keep this popup open while scanning.</p>
+        <progress id="scan-progress" aria-label="Playlist scan progress" hidden></progress>
+      </section>
+      <section id="results" hidden aria-labelledby="results-title">
+        <h2 id="results-title" aria-live="polite">Repeated songs</h2>
+        <div id="results-scroll" tabindex="0" role="region" aria-label="Duplicate songs and playlist positions">
+          <p id="scan-notes" hidden></p>
+          <ul id="duplicate-list"></ul>
+        </div>
+        <button id="show-more" class="secondary" type="button" hidden>Show more duplicates</button>
+      </section>
+      <footer>Only looks. Never changes your music.</footer>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Apple Music Duplicate Finder",
+  "version": "1.0.0",
+  "description": "Find exact duplicate songs in the Apple Music playlist you have open. Read-only and local.",
+  "minimum_chrome_version": "111",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_title": "Apple Music Duplicate Finder",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
+  },
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  }
+}
