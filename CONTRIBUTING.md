@@ -8,7 +8,7 @@ Check existing issues before opening a duplicate report. For new functionality, 
 
 ## Local setup
 
-Requires Node.js 22.8+ and a Chromium-based desktop browser.
+Requires Node.js 22.8+, npm, and a Chromium-based desktop browser. Browser tests need a local Chromium executable. Set `CHROMIUM_PATH` if it is not at the default location; see [development instructions](docs/DEVELOPMENT.md).
 
 ```sh
 npm ci
