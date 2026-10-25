@@ -8,11 +8,11 @@ When the user opens the popup on an Apple Music playlist, the extension identifi
 
 The MusicKit bridge makes only read requests. It extracts allowlisted track metadata, not account credentials or authentication tokens, and returns serializable results to the popup. Playlist data remains in browser memory.
 
-Track pages are retrieved sequentially, preserving every occurrence and one-based playlist position. The reader validates pagination, returned counts when available, and playlist metadata before accepting a scan. A failed or detectably incomplete scan is rejected.
+Track pages are retrieved sequentially, preserving every occurrence and one-based playlist position. The reader validates pagination, returned counts when available, and playlist metadata before accepting a scan. Failed requests or detected inconsistencies invalidate the scan; partial results are discarded.
 
-The bridge prefers MusicKit v3 `api.music()` with an explicit GET method and supports older `api.get()` instances. It never switches APIs to retry a failed request. Each read has a 25-second timeout. Only the visible playlist route is authoritative; playlist names and the playback queue are never used to select a different playlist.
+The bridge prefers MusicKit v3 `api.music()` with an explicit GET method and supports older `api.get()` instances. It never switches APIs to retry a failed request. Each read waits up to 25 seconds before reporting a timeout. This stops the scan from accepting results; it does not cancel a request already issued through MusicKit. Only the visible playlist route is authoritative; playlist names and the playback queue are never used to select a different playlist.
 
-Pages contain at most 100 entries. Continuation URLs must name the same Apple endpoint with a contiguous offset. Without continuation information or a total, the reader probes subsequent offsets until a well-formed empty page, including after short pages and exact page boundaries. It checks available totals, name, and modification markers again at the end. The 10,001-page safety bound produces an error, never a truncated success.
+Pages contain at most 100 entries. Continuation URLs must name the same playlist's track endpoint with a contiguous offset. When a page has no continuation link, the reader stops if it has reached the reported total. Otherwise, it probes the next offset, even after a short page or an exact page boundary. With no reported total, a well-formed empty page marks exhaustion. An empty page before a known total is reached fails the scan. The reader checks available totals, name, and modification markers again at the end. The 10,001-page safety bound produces an error, never a truncated success.
 
 ## Exact duplicate matching
 
@@ -20,7 +20,7 @@ The detector groups entries only when they share a reliable identity, preferring
 
 The detector is approximately O(n) in the number of playlist entries. Large result lists are displayed in batches to keep the popup usable.
 
-Catalog IDs come from `playParams.catalogId`, typed `songs` resources, or typed catalog relationships. Library fallback requires a `library-songs` resource with an `i.…` ID. Arbitrary playlist-entry IDs and music-video IDs are excluded. The matcher first resolves library-to-catalog mappings across the full scan; conflicting mappings never connect different catalog songs. Results retain first-appearance order, with 50 groups rendered per batch.
+Catalog IDs come from `playParams.catalogId`, typed `songs` resources, or typed catalog relationships. Library fallback requires a `library-songs` resource with an `i.…` ID. Arbitrary playlist-entry IDs and music-video IDs are excluded. The matcher first resolves library-to-catalog mappings across the full scan; conflicting mappings never connect different catalog songs. An entry with its own unambiguous catalog ID can still match by that ID, even when its library mapping conflicts. Results retain first-appearance order, with 50 groups rendered per batch.
 
 ## Browser permissions and privacy
 
@@ -43,10 +43,10 @@ If MusicKit is unavailable or returns an unsupported format, scanning stops with
 
 | File | Responsibility |
 | --- | --- |
-| `src/playlist-url.ts` | Parse the active playlist route |
-| `src/musickit-bridge.ts` | Read-only MusicKit adapter in page context |
-| `src/browser-source.ts` | Browser scripting transport |
-| `src/playlist-reader.ts` | Pagination and completeness checking |
-| `src/duplicates.ts` | Exact duplicate grouping |
-| `src/popup.ts` | Popup state, status, and rendering |
-| `src/errors.ts`, `src/types.ts` | Error handling and shared types |
+| [playlist-url.ts](../src/playlist-url.ts) | Parse the active playlist route |
+| [musickit-bridge.ts](../src/musickit-bridge.ts) | Read-only MusicKit adapter in page context |
+| [browser-source.ts](../src/browser-source.ts) | Browser scripting transport |
+| [playlist-reader.ts](../src/playlist-reader.ts) | Pagination and completeness checking |
+| [duplicates.ts](../src/duplicates.ts) | Exact duplicate grouping |
+| [popup.ts](../src/popup.ts) | Popup state, status, and rendering |
+| [errors.ts](../src/errors.ts), [types.ts](../src/types.ts) | Error handling and shared types |
