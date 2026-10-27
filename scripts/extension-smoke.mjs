@@ -80,27 +80,47 @@ try {
         if (result.exceptionDetails) throw new Error('Popup evaluation failed');
         return result.result.value;
       },
+      reload: () => send('Page.reload'),
       close: () => cdp.send('Target.closeTarget', { targetId }),
     };
   }
+  let activePopup;
   async function open(scenario, mode = 'v3') {
-    await apple.bringToFront();
+    if (!activePopup) await apple.bringToFront();
     await apple.evaluate(({ scenario, mode }) => {
       window.scenario = scenario; window.apiMode = mode; window.requests = []; window.fixtureDelay = 25;
       history.replaceState({}, '', '/us/library/playlist/p.fixture');
     }, { scenario, mode });
-    const { targetInfos } = await cdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
-    const tab = targetInfos.find(target => target.url === apple.url());
-    assert.ok(tab);
-    await cdp.send('Extensions.triggerAction', { id, targetId: tab.targetId });
-    const target = await until(async () => (await cdp.send('Target.getTargets')).targetInfos.find(target =>
-      target.type === 'other' && (!target.url || target.url.startsWith(`chrome-extension://${id}/popup.html`))), 'actual toolbar popup target');
-    const popup = await attach(target.targetId);
-    await until(() => popup.evaluate(() => {
-      const title = document.querySelector('#status-title')?.textContent;
-      return Boolean(title && title !== 'Connecting to Apple Music…');
-    }), 'popup initialization');
-    return popup;
+    let previousDocument;
+    if (activePopup) {
+      // Target.closeTarget acknowledges before Windows has necessarily destroyed
+      // its native popup widget. Reopening immediately can toggle that old widget
+      // instead of creating a new target. Reload this real toolbar popup between
+      // fixtures, and require a new document before accepting initialization.
+      previousDocument = await activePopup.evaluate(() => performance.timeOrigin);
+      await activePopup.reload();
+    } else {
+      const { targetInfos } = await cdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
+      const tab = targetInfos.find(target => target.url === apple.url());
+      assert.ok(tab);
+      await cdp.send('Extensions.triggerAction', { id, targetId: tab.targetId });
+      const target = await until(async () => (await cdp.send('Target.getTargets')).targetInfos.find(target =>
+        target.type === 'other' && (!target.url || target.url.startsWith(`chrome-extension://${id}/popup.html`))), 'actual toolbar popup target');
+      activePopup = await attach(target.targetId);
+    }
+    await until(async () => {
+      let state;
+      try {
+        state = await activePopup.evaluate(() => ({ document: performance.timeOrigin,
+          title: document.querySelector('#status-title')?.textContent }));
+      } catch (error) {
+        if (/Cannot find (?:default execution )?context|Execution context was destroyed|Inspected target navigated/.test(error.message)) return false;
+        throw error;
+      }
+      return state.document !== previousDocument && ['Ready to scan', 'Could not connect'].includes(state.title);
+    }, 'fresh popup initialization for ' + scenario);
+    assert.equal(await activePopup.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 0);
+    return activePopup;
   }
   async function scan(popup) {
     assert.equal(await popup.evaluate(() => document.querySelector('#status-title').textContent), 'Ready to scan');
@@ -117,7 +137,6 @@ try {
     assert.equal((await apple.evaluate(() => window.requests)).length, 6);
     assert.deepEqual(await popup.evaluate(() => chrome.runtime.getManifest().permissions), ['activeTab', 'scripting']);
     assert.equal(await popup.evaluate(() => chrome.runtime.getManifest().version), version);
-    await popup.close();
     console.log(`PASS (${mode}): toolbar popup, real activeTab grant, MAIN injection, pagination and safe rendering`);
   }
   for (const [scenario, title, message] of [
@@ -130,7 +149,6 @@ try {
     assert.equal(await popup.evaluate(() => document.querySelector('#status-title').textContent), title);
     assert.match(await popup.evaluate(() => document.querySelector('#status-detail').textContent), message);
     assert.equal(await popup.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 0);
-    await popup.close();
   }
   console.log('PASS: unavailable MusicKit, unauthorised/expired session, changed response format, no partial results');
   const popup = await open('duplicates');
@@ -143,7 +161,6 @@ try {
   await popup.evaluate(() => document.querySelector('#scan').click());
   await until(() => popup.evaluate(() => !document.querySelector('#scan').disabled), 'rescan');
   assert.equal(await popup.evaluate(() => document.querySelector('#status-title').textContent), 'Scan complete');
-  await popup.close();
   console.log('PASS: real extension cancellation and successful independent rescan');
   const blocked = await open('duplicates');
   await apple.goto('https://blocked.test/');

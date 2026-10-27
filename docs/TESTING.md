@@ -25,6 +25,8 @@ Browser fixtures use mocked Apple Music responses and a Chrome API adapter. They
 
 `npm run test:extension` separately installs the actual unmodified production `dist/` extension into a fresh persistent Chromium profile. Chromium DevTools loads it and invokes its real toolbar action. The test attaches to the actual popup target, with no Chrome API adapter: it verifies denied injection before invocation, the `activeTab` grant, MAIN-world MusicKit communication, pagination and matching, expired authentication, changed API formats, cancellation/rescan, and revoked permissions after cross-origin navigation. All website responses are controlled fixtures; external page requests are blocked. The temporary profile is removed after the test.
 
+The smoke suite opens one real toolbar popup and reloads its document between fixture scenarios, asserting a new document and cleared results before each scenario. This avoids a Windows native-widget close/reopen race in the test harness. It does not alter the production popup or prevent it from closing when focus is lost.
+
 CI is configured to run all checks on Node 22.8.0 and current Node 22/24/26 on Linux, plus Node 24 on Windows. The test runner compiles with the existing esbuild dependency and uses Node's default file isolation, without `--test-isolation` or tsx. Fixture success does not prove full live Apple Music or branded-browser compatibility.
 
 ### Local implementation verification (2026-10-27)
