@@ -12,7 +12,7 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
   const text = (value: unknown, fallback: string): string =>
     typeof value === 'string' && value.trim() ? value.slice(0, 2000) : fallback;
   const numericId = (value: unknown): string | null =>
-    typeof value === 'string' && /^\d+$/.test(value) ? value : null;
+    typeof value === 'string' && value.length <= 128 && /^\d+$/.test(value) ? value : null;
   const totalOf = (value: unknown): number | null => {
     if (value === undefined || value === null) return null;
     if (!Number.isSafeInteger(value) || (value as number) < 0) return fail('FORMAT');
@@ -75,18 +75,28 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     let response: unknown;
-    type Read = (path: string, query?: Record<string, never>, options?: { fetchOptions: { method: 'GET' } }) => Promise<unknown>;
+    const controller = new AbortController();
+    const eventName = request.requestId && /^[a-f0-9-]{36}$/.test(request.requestId) ? 'amdf:cancel:' + request.requestId : null;
+    let cancel: (() => void) | undefined;
+    type Read = (path: string, query?: Record<string, never>, options?: { fetchOptions: { method: 'GET'; signal?: AbortSignal } }) => Promise<unknown>;
     try {
       response = await Promise.race([
+        new Promise<never>((_, reject) => {
+          cancel = () => { controller.abort(); reject({ safeCode: 'CANCELLED' }); };
+          if (eventName) window.addEventListener(eventName, cancel, { once: true });
+        }),
         // v3 uses the music passthrough; older player instances expose get.
         // Bind the receiver and never retry through a second API after failure.
-        useMusic ? (read as Read).call(api, path, {}, { fetchOptions: { method: 'GET' } }) :
+        useMusic ? (read as Read).call(api, path, {}, { fetchOptions: { method: 'GET', signal: controller.signal } }) :
           (read as Read).call(api, path),
         new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject({ safeCode: 'TIMEOUT' }), 25_000);
+          timer = setTimeout(() => { reject({ safeCode: 'TIMEOUT' }); controller.abort(); }, 25_000);
         }),
       ]);
-    } finally { clearTimeout(timer); }
+    } finally {
+      clearTimeout(timer);
+      if (eventName && cancel) window.removeEventListener(eventName, cancel);
+    }
     checkPage();
 
     const root = obj(response);
@@ -115,8 +125,11 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
       const info: PlaylistInfo = {
         name: text(attrs!.name, 'Untitled playlist'),
         total: attrTotal ?? relationshipTotal,
-        modified: typeof attrs!.lastModifiedDate === 'string' ? attrs!.lastModifiedDate : null,
+        modified: typeof attrs!.lastModifiedDate === 'string' && attrs!.lastModifiedDate.trim() ? attrs!.lastModifiedDate.slice(0, 2000) : null,
       };
+      // Observed on some Apple playlist resources; not a guaranteed snapshot token.
+      const revision = obj(attrs!.playParams)?.versionHash;
+      if (typeof revision === 'string' && revision.trim()) info.revision = revision.slice(0, 2000);
       return { ok: true, data: info };
     }
 
@@ -148,7 +161,7 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
       // Conflicting catalog identifiers are ambiguous: do not guess or fall back.
       const catalogId = ids.size === 1 ? [...ids][0]! : null;
       const libraryId = ids.size <= 1 && item.type === 'library-songs' &&
-        typeof item.id === 'string' && /^i\.[A-Za-z0-9-]+$/.test(item.id) ? item.id : null;
+        typeof item.id === 'string' && item.id.length <= 128 && /^i\.[A-Za-z0-9-]+$/.test(item.id) ? item.id : null;
       return {
         position: request.offset + index + 1,
         name: text(attrs?.name, 'Unknown song'),
@@ -176,7 +189,12 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
     const safe = obj(error)?.safeCode;
     // Only our fixed codes, never Apple exception text, headers, or tokens.
     const codes: ErrorCode[] = ['NOT_PLAYLIST', 'PAGE_CHANGED', 'MUSICKIT_UNAVAILABLE', 'AUTH',
-      'RATE_LIMIT', 'NETWORK', 'TIMEOUT', 'NOT_FOUND', 'API', 'FORMAT', 'INCOMPLETE'];
+      'RATE_LIMIT', 'NETWORK', 'TIMEOUT', 'NOT_FOUND', 'API', 'FORMAT', 'INCOMPLETE', 'CANCELLED'];
     return { ok: false, code: codes.includes(safe as ErrorCode) ? safe as ErrorCode : statusCode(error) };
   }
+}
+
+/** Serialized separately so cancellation never needs host permissions or stored credentials. */
+export function cancelMusicKitRead(requestId: string): void {
+  if (/^[a-f0-9-]{36}$/.test(requestId)) window.dispatchEvent(new Event('amdf:cancel:' + requestId));
 }

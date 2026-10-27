@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { musicKitBridge } from '../src/musickit-bridge';
+import { cancelMusicKitRead, musicKitBridge } from '../src/musickit-bridge';
 import type { BridgeRequest, PlaylistInfo, TrackPage } from '../src/types';
 
 const playlist = { id: 'p.test', kind: 'library' as const, storefront: 'us', pathname: '/us/library/playlist/p.test' };
@@ -32,6 +32,55 @@ test('accepts the three MusicKit response envelopes without exposing tokens', as
     assert.equal(JSON.stringify(result).includes('must not leave page'), false);
     assert.deepEqual(calls, ['/v1/me/library/playlists/p.test/tracks?limit=100&offset=0&include=catalog']);
   }
+});
+
+test('v3 cancellation aborts fetchOptions and removes its page event listener', async () => {
+  const target = new EventTarget();
+  let removed = 0;
+  let signal: AbortSignal | undefined;
+  const { win } = setup(() => ({}), { api: { music: async (_path: string, _query: unknown,
+    options: { fetchOptions: { signal: AbortSignal } }) => {
+    signal = options.fetchOptions.signal;
+    return new Promise(() => {});
+  } } });
+  Object.assign(win, { addEventListener: target.addEventListener.bind(target),
+    removeEventListener: (...args: Parameters<EventTarget['removeEventListener']>) => { removed++; target.removeEventListener(...args); },
+    dispatchEvent: target.dispatchEvent.bind(target) });
+  const requestId = '12345678-1234-1234-1234-123456789abc';
+  const pending = musicKitBridge({ ...request, requestId });
+  cancelMusicKitRead(requestId);
+  assert.deepEqual(await pending, { ok: false, code: 'CANCELLED' });
+  assert.equal(signal?.aborted, true);
+  assert.equal(removed, 1);
+});
+
+test('timeout aborts v3 where supported and legacy late rejections are handled', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let signal: AbortSignal | undefined;
+  setup(() => ({}), { api: { music: async (_path: string, _query: unknown,
+    options: { fetchOptions: { signal: AbortSignal } }) => {
+    signal = options.fetchOptions.signal;
+    return new Promise(() => {});
+  } } });
+  const pending = musicKitBridge(request);
+  t.mock.timers.tick(25_000);
+  assert.deepEqual(await pending, { ok: false, code: 'TIMEOUT' });
+  assert.equal(signal?.aborted, true);
+  let rejectLate!: (error: Error) => void;
+  setup(() => new Promise((_, reject) => { rejectLate = reject; }));
+  const legacy = musicKitBridge(request);
+  t.mock.timers.tick(25_000);
+  assert.deepEqual(await legacy, { ok: false, code: 'TIMEOUT' });
+  rejectLate(new Error('Late private failure'));
+  await Promise.resolve();
+});
+
+test('metadata extracts optional version hashes, and blank modification markers remain unknown', async () => {
+  setup(() => ({ data: [{ id: playlist.id, type: 'library-playlists',
+    attributes: { name: 'Versioned', lastModifiedDate: '', playParams: { versionHash: 'v1' } } }] }));
+  assert.deepEqual(await musicKitBridge({ action: 'metadata', playlist }), {
+    ok: true, data: { name: 'Versioned', modified: null, total: null, revision: 'v1' },
+  });
 });
 test('catalog relationship, typed catalog resource and library fallback identities', async () => {
   setup(() => ({ data: [
@@ -133,7 +182,9 @@ test('MusicKit v3 music-only instances support metadata and tracks as explicit G
     async music(this: unknown, path: string, query: unknown, options: unknown) {
       assert.equal(this, api);
       assert.deepEqual(query, {});
-      assert.deepEqual(options, { fetchOptions: { method: 'GET' } });
+      const fetchOptions = (options as { fetchOptions: { method: string; signal: AbortSignal } }).fetchOptions;
+      assert.equal(fetchOptions.method, 'GET');
+      assert.ok(fetchOptions.signal instanceof AbortSignal);
       calls.push(path);
       return { request: { private: 'do not expose' }, response: { status: 200 }, data: path.includes('/tracks?')
         ? { data: [song()], meta: { total: 1 } }

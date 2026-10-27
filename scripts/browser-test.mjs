@@ -1,3 +1,4 @@
+import { fixture } from './fixtures/player.mjs';
 import assert from 'node:assert/strict';
 import { readFile, mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -18,65 +19,10 @@ for (const size of [16, 32, 48, 128]) {
 }
 console.log('PASS: extension and toolbar icons exist as correctly sized PNGs');
 
-const fixture = `<!doctype html><title>Mock Apple Music</title><h1>Mock player — no account</h1>
-<script>
-window.scenario = 'duplicates';
-window.apiMode = 'legacy';
-window.requests = [];
-window.MusicKit = { getInstance() {
-  if (window.scenario === 'unavailable') throw new Error('not initialized');
-  const api = {
-    async get(path) {
-      window.requests.push(path);
-      await new Promise(resolve => setTimeout(resolve, window.fixtureDelay || 25));
-      const scenario = window.scenario;
-      const offset = Number(new URL(path, location.origin).searchParams.get('offset'));
-      const length = scenario === 'empty' ? 0 : scenario === 'many' ? 2400 : 245;
-      if (!path.includes('/tracks?')) return { data: [{ id: 'p.fixture', type: 'library-playlists',
-        attributes: { name: scenario === 'coverage' ? 'Very long playlist name '.repeat(40) : '<img src=x onerror=alert(1)> My playlist', trackCount: scenario === 'coverage' ? undefined : scenario === 'incomplete' ? 250 : length,
-          lastModifiedDate: '2026-10-23T00:00:00Z' } }] };
-      if (scenario === 'rate') throw { status: 429 };
-      if (scenario === 'expired' && offset >= 100) throw { data: { status: 401 }, reason: 'UNAUTHORIZED_ERROR' };
-      if (scenario === 'resolvedError' && offset >= 100) return { response: { status: 401 }, data: { data: [] } };
-      if (scenario === 'network' && offset >= 100) throw new TypeError('Failed to fetch');
-      if (scenario === 'malformed' && offset >= 100) return { unexpected: [] };
-      if (scenario === 'navigate') history.pushState({}, '', '/us/library/playlist/p.other');
-      return { json: { data: Array.from({ length: Math.max(0, Math.min(100, length - offset)) }, (_, i) => {
-        const index = offset + i;
-        const repeated = scenario !== 'distinct' && [0, 100, 244].includes(index);
-        return { id: scenario === 'unknown' || (scenario === 'coverage' && index === 2) ? 'entry-' + index : scenario === 'mixed' && repeated ? 'i.numb' : 'i.' + index, type: 'library-songs', attributes: {
-          name: repeated ? 'Numb' : 'Song ' + index,
-          artistName: repeated ? 'Linkin Park' : 'Artist',
-          playParams: scenario === 'unknown' || (scenario === 'coverage' && index === 2) || (scenario === 'mixed' && index === 0) ? {} :
-            { catalogId: scenario === 'many' ? String(1000 + index % 1200) : repeated ? '123' : String(1000 + index) }
-        } };
-      }), meta: { total: scenario === 'coverage' ? undefined : scenario === 'incomplete' ? 250 : length } } };
-    }
-  };
-  if (window.apiMode === 'v3') {
-    const legacyRead = api.get;
-    api.music = async function(path, query, options) {
-      if (this !== api || Object.keys(query).length || options?.fetchOptions?.method !== 'GET') throw new Error('Invalid v3 read');
-      try {
-        const body = await legacyRead(path);
-        if (body.response?.status >= 400) return body;
-        return { data: body.json || body, response: { status: 200 } };
-      } catch (error) {
-        // Match MKError.responseError's nested Response shape.
-        if (error.status) throw { data: new Response(null, { status: error.status }), reason: 'UNKNOWN_ERROR' };
-        throw error;
-      }
-    };
-    delete api.get;
-  }
-  return { isAuthorized: window.scenario !== 'auth', storefrontId: 'us', api };
-} };
-</script>`;
-
 let browser;
 try {
   browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
+    ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : { channel: 'chromium' }),
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
@@ -210,6 +156,39 @@ try {
     assert.equal(await popup.locator('#status-title').textContent(), 'No duplicates among identified songs');
     assert.match(await popup.locator('#status-detail').textContent(), /245 entries had no reliable song ID/);
 
+    await open('noMarker');
+    await scan();
+    assert.match(await popup.locator('#scan-notes').textContent(), /Same-count edits or reordering cannot be detected/);
+
+    await open('huge');
+    await scan();
+    assert.equal(await popup.locator('#status-title').textContent(), 'Scan failed');
+    assert.match(await popup.locator('#status-detail').textContent(), /resource limit/);
+    assert.equal(await popup.locator('#duplicate-list li').count(), 0);
+
+    await open('lateFailure');
+    await popup.getByRole('heading', { name: 'Ready to scan', exact: true }).waitFor();
+    await apple.evaluate(() => { window.fixtureDelay = 700; });
+    await popup.locator('#scan').click();
+    // Cancel after a track request has started, not just the initial metadata.
+    await apple.waitForFunction(() => window.requests.some(path => path.includes('/tracks?')));
+    const startedCancel = Date.now();
+    await popup.getByRole('button', { name: 'Cancel scan', exact: true }).click();
+    await popup.getByRole('heading', { name: 'Scan cancelled', exact: true }).waitFor();
+    assert.ok(Date.now() - startedCancel < 1000, 'Cancellation should not wait for the API timeout');
+    assert.equal(await popup.locator('#cancel').isVisible(), false);
+    assert.equal(await popup.locator('#duplicate-list li').count(), 0);
+    await apple.evaluate(() => { window.scenario = 'duplicates'; window.fixtureDelay = 25; });
+    await scan();
+    assert.equal(await popup.locator('#status-title').textContent(), 'Scan complete');
+    // Wait for the deliberately non-abortable legacy request to reject. Its late
+    // rejection must not overwrite the new scan or cause an unhandled exception.
+    await apple.waitForFunction(() => window.lateFailures > 0);
+    assert.equal(await popup.locator('#status-title').textContent(), 'Scan complete');
+    assert.equal(await popup.locator('.positions').textContent(), 'Playlist positions: 1, 101, 245');
+    if (apiMode === 'v3') assert.ok(await apple.evaluate(() => window.abortedRequests > 0));
+    console.log(`PASS (${apiMode}): consistency warning, huge playlist refusal, prompt cancellation, late failure isolation and successful rescan`);
+
     await open('duplicates');
     await apple.evaluate(() => { window.fixtureDelay = 200; });
     await popup.locator('#scan').click();
@@ -280,7 +259,7 @@ try {
   }
   assert.deepEqual(pageErrors, []);
   console.log(`PASS: ${scenarioCount} UI fixture scenarios across both API versions; no popup runtime exceptions`);
-  console.log('UNVERIFIED: actual extension installation/toolbar activeTab grant, real Apple Music session, Microsoft Edge');
+  console.log('UNVERIFIED by fixtures: installation/activeTab (covered separately by test:extension), live Apple Music, branded Chrome/Edge');
 } finally {
   await browser?.close();
 }

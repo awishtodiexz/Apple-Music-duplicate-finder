@@ -8,12 +8,13 @@ Check existing issues before opening a duplicate report. For new functionality, 
 
 ## Local setup
 
-Requires Node.js 22.8+, npm, and a Chromium-based desktop browser. Browser tests need a local Chromium executable. Set `CHROMIUM_PATH` if it is not at the default location; see [development instructions](docs/DEVELOPMENT.md).
+Supports Node.js 22 (22.8+), 24, and 26 with npm. Browser tests use Playwright's pinned Chromium; see [development instructions](docs/DEVELOPMENT.md).
 
 ```sh
 npm ci
+npx --no-install playwright install chromium
 npm run check
-npm run package
+npm run audit
 ```
 
 To test an unpacked build, enable Developer mode in your browser's Extensions page and load the generated `dist/` directory.
@@ -22,7 +23,7 @@ To test an unpacked build, enable Developer mode in your browser's Extensions pa
 
 - Keep changes focused and explain the problem they solve.
 - Add regression tests for changes to playlist retrieval, song matching, or error handling.
-- Preserve the read-only design. Do not introduce playlist writes, credential interception, or unnecessary browser permissions.
+- Preserve the read-only design and native toolbar popup. Do not introduce playlist writes, credential interception, unnecessary browser permissions, or a side panel as part of a maintenance change.
 - Run `npm run check` before submitting.
 - Avoid unrelated formatting changes and new dependencies unless justified.
 - Do not add private playlist data, screenshots containing account details, tokens, cookies, or other personal information to tests, issues, or pull requests.
@@ -30,3 +31,5 @@ To test an unpacked build, enable Developer mode in your browser's Extensions pa
 ## Bug reports
 
 Include your browser/version, extension/version, steps to reproduce, expected behavior, and actual behavior. Redact personal and account information from screenshots and logs. For security vulnerabilities, follow [SECURITY.md](SECURITY.md) rather than posting exploit details publicly.
+
+For versioning, release checks, artifacts, and publication, follow the [release checklist](docs/RELEASING.md).
