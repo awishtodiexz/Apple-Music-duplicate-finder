@@ -1,4 +1,4 @@
-Apple Music Duplicate Finder — Chromium Extension
+Apple Music Duplicate Finder v1.1.0 — Chromium Extension
 
 INSTALL
 1. Extract the release ZIP into a folder you intend to keep.
@@ -7,7 +7,14 @@ INSTALL
 4. Select the extracted folder containing manifest.json.
 5. Open https://music.apple.com, sign in, and open a playlist.
 6. Click the extension icon, check the Current playlist name, then Scan for Duplicates.
-7. Keep the popup open until the scan finishes. Closing it discards the scan.
+7. Keep the popup focused until the scan finishes. Clicking outside closes it and discards the scan.
+8. Use Cancel scan to stop; you can start a new scan immediately.
+
+LIMITS
+Scans stop after five minutes, 50,000 entries, 2,000 pages, or 16 million
+metadata characters. Cancelled, failed, or limited scans accept no partial results.
+Avoid editing the playlist while scanning. Apple does not guarantee an atomic
+snapshot, and same-count edits may escape the available consistency checks.
 
 UPDATE
 Extract the latest release ZIP into the same folder and click Reload on the Extensions page.

@@ -11,6 +11,7 @@ function element<T extends HTMLElement>(id: string): T {
   return found as T;
 }
 const scan = element<HTMLButtonElement>('scan');
+const cancel = element<HTMLButtonElement>('cancel');
 const playlistName = element('playlist-name');
 const status = element('status');
 const statusTitle = element('status-title');
@@ -27,6 +28,7 @@ let busy = false;
 const batchSize = 50;
 let groups: DuplicateGroup[] = [];
 let displayed = 0;
+let scanController: AbortController | null = null;
 
 function setStatus(title: string, detail: string, error = false): void {
   statusTitle.textContent = title;
@@ -109,10 +111,16 @@ showMore.addEventListener('click', () => {
   list.children[firstNew]?.scrollIntoView({ block: 'start' });
 });
 
+cancel.addEventListener('click', () => scanController?.abort());
+window.addEventListener('pagehide', () => scanController?.abort());
+
 scan.addEventListener('click', async () => {
   if (busy) return;
   if (!source) { await initialize(); return; }
   busy = true;
+  const controller = new AbortController();
+  scanController = controller;
+  cancel.hidden = false;
   scan.disabled = true;
   scan.textContent = 'Scanning…';
   clearGroups();
@@ -120,14 +128,15 @@ scan.addEventListener('click', async () => {
   progress.removeAttribute('value');
   setStatus('Scanning playlist…', 'Connecting to Apple Music…');
   try {
-    const result = await readPlaylist(source, ({ retrieved, total }) => {
+    const result = await readPlaylist(source, ({ retrieved, total, elapsedMs, phase }) => {
       const count = total === null ? number(retrieved) : `${number(retrieved)} of ${number(total)}`;
-      setStatus('Scanning playlist…', `${count} songs retrieved\nKeep this popup open while scanning.`);
+      setStatus(phase === 'validating' ? 'Checking playlist…' : 'Scanning playlist…',
+        `${count} songs retrieved · ${Math.floor(elapsedMs / 1000)}s elapsed\nKeep this popup open while scanning.`);
       if (total !== null && total > 0) {
         progress.max = total;
         progress.value = retrieved;
       } else progress.removeAttribute('value');
-    });
+    }, { signal: controller.signal });
     const duplicates = findDuplicates(result.tracks);
     playlistName.textContent = result.info.name;
     playlistName.title = result.info.name;
@@ -136,20 +145,27 @@ scan.addEventListener('click', async () => {
     const coverage = duplicates.unidentified ?
       `\n${number(duplicates.unidentified)} ${duplicates.unidentified === 1 ? 'entry' : 'entries'} had no reliable song ID and ${duplicates.unidentified === 1 ? 'was' : 'were'} excluded from matching.` : '';
     const verification = result.countVerified ? '' : '\nAll API pages read; Apple supplied no total to independently verify the count.';
+    const consistency = result.modificationChecked ?
+      '\nModification markers matched, but Apple provides no atomic snapshot. Avoid editing the playlist during a scan.' :
+      '\nApple supplied no modification marker. Same-count edits or reordering cannot be detected; scan again if you edited this playlist.';
     const hasGroups = duplicates.groups.length > 0;
     setStatus(hasGroups ? 'Scan complete' : duplicates.unidentified ?
-      'No duplicates among identified songs' : 'No exact duplicates found', summary + (hasGroups ? '' : coverage + verification));
-    notes.textContent = (coverage + verification).trim();
+      'No duplicates among identified songs' : 'No exact duplicates found', summary + (hasGroups ? '' : coverage + verification + consistency));
+    notes.textContent = (coverage + verification + consistency).trim();
     notes.hidden = !notes.textContent;
     groups = duplicates.groups;
     appendGroups();
   } catch (error) {
-    setStatus('Scan failed', errorMessage(error), true);
+    clearGroups();
+    setStatus(error instanceof ScanError && error.code === 'CANCELLED' ? 'Scan cancelled' : 'Scan failed', errorMessage(error),
+      !(error instanceof ScanError && error.code === 'CANCELLED'));
     if (error instanceof ScanError && ['PAGE_CHANGED', 'AUTH', 'MUSICKIT_UNAVAILABLE', 'NOT_FOUND'].includes(error.code)) {
       source = null;
     }
   } finally {
     busy = false;
+    scanController = null;
+    cancel.hidden = true;
     scan.disabled = false;
     scan.textContent = source ? 'Scan for Duplicates' : 'Retry connection';
     progress.hidden = true;

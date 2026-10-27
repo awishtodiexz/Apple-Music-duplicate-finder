@@ -2,9 +2,9 @@
 
 ## Requirements
 
-- Node.js 22.8 or newer and npm; Node.js 24 LTS is recommended.
+- Node.js 22 (22.8+), 24, or 26 and npm. Use a current patched release; Node.js 24 is a suitable default. Odd-numbered and future major versions are not declared supported.
 - Git to clone the repository, or an extracted GitHub source archive.
-- A desktop Chromium browser for manual testing and a local Chromium executable for browser fixture tests.
+- A desktop Chromium browser for manual testing. Automated tests use the full Chromium browser pinned by the Playwright lockfile.
 
 ## Setup
 
@@ -12,11 +12,14 @@
 git clone https://github.com/awishtodiexz/Apple-Music-duplicate-finder.git
 cd Apple-Music-duplicate-finder
 npm ci
+npx --no-install playwright install chromium
 ```
 
 If you downloaded the source archive, open a terminal in the extracted project folder and start with `npm ci`.
 
-The browser runner defaults to `/usr/bin/chromium`. If your executable is elsewhere, set `CHROMIUM_PATH` before running `npm run check` or `npm run test:browser`.
+Both browser suites default to Playwright's bundled full Chromium. On Linux CI, install its system dependencies with `npx --no-install playwright install --with-deps chromium`. Browser downloads and test profiles are separate from your signed-in browser profile.
+
+For the UI fixture suite only, `CHROMIUM_PATH` can select an existing executable. The installed-extension smoke test deliberately uses pinned Chromium: branded Chrome and Edge no longer support the required command-line extension sideloading. See [Playwright's extension testing documentation](https://playwright.dev/docs/chrome-extensions).
 
 Linux or macOS:
 
@@ -37,12 +40,24 @@ Replace these examples with the actual executable path. The fixture runner uses 
 | Command | Result |
 | --- | --- |
 | `npm run build` | Type-check and build the unpacked extension in `dist/` |
-| `npm test` | Run the core TypeScript tests |
+| `npm test` | Compile TypeScript tests with esbuild and run Node's default isolated test processes; works on Node 22 without version-specific flags |
 | `npm run test:browser` | Build and run the browser fixtures |
-| `npm run check` | Run the build and both test suites |
+| `npm run test:extension` | Install the actual production extension in a fresh Chromium profile and exercise its real toolbar popup and permissions |
+| `npm run test:package` | Build/package, inspect ZIP contents, verify SHA-256 and tamper rejection, and compare repeated packaging byte-for-byte |
+| `npm run check:security` | Verify built-file/permission/CSP invariants and scan current files for selected credential patterns without printing values |
+| `npm run audit` | Audit the full dependency tree, including development packages; fail on any reported vulnerability |
+| `npm run check` | Build, type-check, run all three test suites, verify packaging, and run static security checks |
 | `npm run package` | Build and create the installation ZIP in `artifacts/` |
 
-The ZIP filename uses the manifest version: version `1.0.0` produces `artifacts/apple-music-duplicate-finder-v1.0.0.zip`. The GitHub release labeled **1.0** distributes that build as `apple-music-duplicate-finder-1.0.zip`.
+The ZIP filename uses the manifest version: version `1.1.0` produces `artifacts/apple-music-duplicate-finder-v1.1.0.zip`. Its checksum is `artifacts/apple-music-duplicate-finder-v1.1.0.zip.sha256`. Historical release 1.0 used a different download filename; do not rename or replace that published asset.
+
+New builds also generate a `.zip.sha256` sidecar. ZIP entry order and timestamps are fixed, so packaging identical build files produces identical bytes. The sidecar detects corruption; it is not a signature or independent proof of the publisher. Published release assets remain unchanged until a new release is explicitly prepared.
+
+## Continuous integration and dependency review
+
+The CI workflow runs on pushes, pull requests, manual dispatch, and a weekly schedule. Linux jobs exercise Node 22.8.0, current Node 22, 24, and 26; a Windows job exercises Node 24. All jobs use `npm ci`, pinned action commits, read-only repository permissions, and no persisted Git credentials. No job publishes a release or extension.
+
+Dependabot proposes weekly npm and GitHub Actions updates. Review advisories and changelogs, update the lockfile, and run the complete checks before accepting an update. Do not automatically cross TypeScript major versions just to obtain a newer version. See [dependency security notes](DEPENDENCIES.md).
 
 ## Try a local build
 
@@ -52,13 +67,7 @@ Keep the folder in place and edit source files rather than generated output. For
 
 ## Prepare a release
 
-1. Update `package.json`, both project version fields in `package-lock.json`, and `public/manifest.json` to the same version. Update the changelog.
-2. Run `npm ci`, `npm run check`, and `npm run package`.
-3. Inspect the ZIP. It should contain the manifest, popup HTML/CSS/JavaScript, four icons, `LICENSE`, and `INSTALL.txt`. Check that no credentials, account data, browser profiles, screenshots, or development files are included.
-4. Commit and push the reviewed source. Create a draft GitHub release with a tag pointing to that tested commit, and attach the checked installation ZIP before publishing.
-5. Publish the release, download the attached ZIP, and compare its checksum with the tested file. Confirm the README download link names the correct release asset.
-
-Keep published tags and downloads unchanged. Publish a new version for fixes. If release immutability is enabled, the tag and assets are locked when the release is published; upload all assets while it is still a draft.
+Follow [the release checklist](RELEASING.md). Keep package, lockfile, manifest, changelog, documentation, release notes, and filenames consistent. Validate the final merged source and the generated ZIP before tagging or publication. Publishing stays manual and requires authorization; CI never publishes a release.
 
 [INSTALL.txt](../INSTALL.txt) supplies the installation instructions packaged in the ZIP. Build output, test screenshots, dependencies, and ZIPs are ignored by Git. `private: true` in `package.json` prevents accidental npm publication; it does not control GitHub visibility or the MIT license.
 

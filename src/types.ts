@@ -1,5 +1,6 @@
 export type ErrorCode = 'NOT_PLAYLIST' | 'PAGE_CHANGED' | 'MUSICKIT_UNAVAILABLE' |
-  'AUTH' | 'RATE_LIMIT' | 'NETWORK' | 'TIMEOUT' | 'NOT_FOUND' | 'API' | 'FORMAT' | 'INCOMPLETE';
+  'AUTH' | 'RATE_LIMIT' | 'NETWORK' | 'TIMEOUT' | 'NOT_FOUND' | 'API' | 'FORMAT' | 'INCOMPLETE' |
+  'CANCELLED' | 'DEADLINE' | 'LIMIT';
 
 export interface PlaylistRef {
   id: string;
@@ -20,6 +21,7 @@ export interface PlaylistInfo {
   name: string;
   total: number | null;
   modified: string | null;
+  revision?: string | null;
 }
 
 export interface TrackPage {
@@ -28,7 +30,7 @@ export interface TrackPage {
   nextOffset: number | null;
 }
 
-export type BridgeRequest = { playlist: PlaylistRef } & (
+export type BridgeRequest = { playlist: PlaylistRef; requestId?: string } & (
   { action: 'metadata' } | { action: 'tracks'; offset: number }
 );
 export type BridgeReply = { ok: true; data: PlaylistInfo | TrackPage } |

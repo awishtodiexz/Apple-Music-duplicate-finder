@@ -2,7 +2,7 @@
 
 ## Supported version
 
-Security reports are accepted for the latest release, currently 1.0. This is a community project; there is no guaranteed response time.
+Security reports are accepted for the latest release, currently 1.1.0. This is a community project; there is no guaranteed response time.
 
 ## Reporting a vulnerability
 
