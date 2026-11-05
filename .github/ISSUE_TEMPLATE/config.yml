@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Security report
-    url: https://github.com/awishtodiexz/Apple-Music-duplicate-finder/security/policy
-    about: Follow the security policy and report vulnerabilities privately; do not post sensitive details in an issue.
+  - name: Report a security vulnerability
+    url: https://github.com/awishtodiexz/Apple-Music-duplicate-finder/security/advisories/new
+    about: Report vulnerabilities privately; do not post sensitive details in an issue.

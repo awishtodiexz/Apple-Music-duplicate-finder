@@ -72,4 +72,4 @@ For v1.1.0, the maintainer personally reports that the updated extension complet
 - Concurrent same-count edits can escape detection without modification metadata. Avoid editing a playlist during a scan.
 - The extension does not remove or edit music.
 
-See [Architecture](ARCHITECTURE.md) for the retrieval and identity rules, and [SECURITY.md](../SECURITY.md) for vulnerability reporting.
+See [Architecture](ARCHITECTURE.md) for the retrieval and identity rules, and [SECURITY.md](../.github/SECURITY.md) for vulnerability reporting.
