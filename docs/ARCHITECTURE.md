@@ -40,7 +40,7 @@ The extension requests `activeTab` and `scripting` only. Temporary tab access is
 - Concurrent same-count playlist edits may not be detected if Apple does not expose a modification marker.
 - A matching modification marker is a consistency check, not proof of an atomic snapshot. Optional version hashes are observed on some resources, not a guaranteed revision mechanism for every playlist. The popup warns in both cases, and highlights when no marker was available.
 - The API does not provide an atomic snapshot. Navigation away and back between route checks may also escape detection.
-- The native toolbar popup closes when focus is lost, including clicking outside it. Closing it discards the current scan. v1.1.0 retains this behavior and does not add a side panel.
+- The native toolbar popup closes when focus is lost, including clicking outside it. Closing it discards the current scan. The toolbar popup retains this behavior and does not add a side panel.
 - Apple may change its web-player MusicKit API; this integration is unofficial.
 - The extension **does not edit or delete** songs or playlists.
 
