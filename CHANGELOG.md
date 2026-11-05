@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [1.1.1](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.1.1) (2026-11-05)
 
 - Prefer the visible catalog playlist's storefront over the player's storefront, falling back to the player only when the route omits one.
 - Pluralize the remaining-results button correctly when exactly one song is left.
@@ -9,6 +9,7 @@
 - Configure Dependabot to defer major updates of TypeScript and Node typings to an explicit compatibility review.
 - Route security reports through the security policy, add a pull-request checklist, and document required repository security settings.
 - Enable private vulnerability reporting, secret scanning and push protection, Dependabot alerts and security updates, CodeQL default setup, and required CI checks on `main`.
+- Add installation requirements, a feature summary, troubleshooting guidance, and checksum verification to the README.
 
 ## [1.1.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.1.0) (2026-10-27)
 
