@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Move community files into `.github/`, keep the root tree focused, and update contributing, security, and license attribution.
+- Add direct private vulnerability reporting and contributor branch-protection guidance.
+
 ## [1.1.1](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.1.1) (2026-11-05)
 
 - Prefer the visible catalog playlist's storefront over the player's storefront, falling back to the player only when the route omits one.

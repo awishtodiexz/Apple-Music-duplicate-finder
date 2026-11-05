@@ -8,11 +8,11 @@ Security reports are accepted for the latest release, currently 1.1.1. This is a
 
 Please **do not publish sensitive security vulnerabilities or exploit instructions in public issues**.
 
-This repository uses GitHub private vulnerability reporting. Use the **Security → Report a vulnerability** flow; do not open a public issue for a sensitive report.
+This repository uses GitHub private vulnerability reporting. Use the [private report form](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/security/advisories/new) or **Security → Report a vulnerability**; do not open a public issue for a sensitive report.
 
 Never send Apple Music passwords, cookies, authorization headers, user tokens, or private playlist contents.
 
-Include the affected extension version, the impact, and steps to reproduce using fictional data. Avoid raw MusicKit responses or network captures that may contain account information.
+Include the affected extension version, the impact, and steps to reproduce using fictional data. Avoid raw MusicKit responses or network captures that may contain account information. Do not test against Apple Music accounts or playlists you do not own.
 
 ## Project security model
 
