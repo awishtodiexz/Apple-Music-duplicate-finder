@@ -68,8 +68,9 @@ function appendGroups(): void {
   }
   list.append(fragment);
   displayed = end;
+  const remaining = Math.min(batchSize, groups.length - displayed);
   showMore.hidden = displayed === groups.length;
-  showMore.textContent = `Show ${number(Math.min(batchSize, groups.length - displayed))} more songs`;
+  showMore.textContent = `Show ${number(remaining)} more ${remaining === 1 ? 'song' : 'songs'}`;
   element('results-title').textContent = displayed < groups.length ?
     `Repeated songs · ${number(displayed)} of ${number(groups.length)} shown` : 'Repeated songs';
   results.hidden = groups.length === 0;

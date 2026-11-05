@@ -10,12 +10,12 @@ npm run check
 npm run audit
 ```
 
-The expanded suites contain **64 unit tests**, **46 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
+The expanded suites contain **66 unit tests**, **48 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
 
 - Exact identifier matching, missing/conflicting identifiers, original order, and 10,000-entry inputs.
 - Pagination beyond 100 entries, exact page boundaries, short pages, changing totals, and final metadata validation.
-- Legacy `api.get()` and v3 `api.music()` response shapes, timeouts, failed HTTP wrappers, and errors after partial retrieval.
-- Popup progress, recovery, safe text rendering, unknown-identity warnings, and batches of results.
+- Legacy `api.get()` and v3 `api.music()` response shapes, timeouts, failed HTTP wrappers, errors after partial retrieval, and catalog storefront precedence.
+- Popup progress, recovery, safe text rendering, unknown-identity warnings, batches of results, and singular remaining-batch text.
 - Icon paths and dimensions, keyboard focus, and document scrolling down to 300 × 300 pixels in light and dark modes.
 - The 50,000-entry boundary, metadata/page budgets, overall deadlines during metadata/pages/final validation, prompt cancellation, late replies, and independent concurrent scans.
 - Reordering, replacing, renaming, adding, and removing entries via changed metadata markers, and explicit unverified-consistency status when markers are absent.
@@ -27,13 +27,19 @@ Browser fixtures use mocked Apple Music responses and a Chrome API adapter. They
 
 The smoke suite opens one real toolbar popup and reloads its document between fixture scenarios, asserting a new document and cleared results before each scenario. This avoids a Windows native-widget close/reopen race in the test harness. It does not alter the production popup or prevent it from closing when focus is lost.
 
-CI is configured to run all checks on Node 22.8.0 and current Node 22/24/26 on Linux, plus Node 24 on Windows. The test runner compiles with the existing esbuild dependency and uses Node's default file isolation, without `--test-isolation` or tsx. Fixture success does not prove full live Apple Music or branded-browser compatibility.
+CI is configured to run all checks on Node 22.8.0 and current Node 22/24/26 on Linux, plus Node 24 on Windows. The test runner compiles with the existing esbuild dependency and uses Node's default file isolation, without `--test-isolation` or tsx. Repository security settings are enabled for private vulnerability reporting, secret scanning with push protection, Dependabot alerts and security updates, CodeQL default setup, and required CI status checks on `main`. Fixture success does not prove full live Apple Music or branded-browser compatibility.
 
 ### Local implementation verification (2026-10-27)
 
 A clean `npm ci` succeeded. The complete `npm run check` passed on Windows under Node **22.8.0**, **22.23.4**, **24.22.1**, and **26.12.1**, with the unit runner's actual child runtime recorded and checked. Each run included all 64 unit tests, 46 UI fixture scenarios, the actual unpacked-extension smoke suite, the production build, ZIP/content/checksum verification, and static security checks. Browser tests used pinned Chromium 156.0.8078.4 with fictional data and no real Apple Music account.
 
-The complete npm dependency audit reported **zero vulnerabilities**. `actionlint` 1.7.12 accepted the CI workflow, and `git diff --check` passed. GitHub-hosted workflow execution and Linux execution were not performed in this worktree; those remain to be verified when the workflow is run. This records local implementation checks; release publication is documented separately in the v1.1.0 release notes.
+The complete npm dependency audit reported **zero vulnerabilities**. `actionlint` 1.7.12 accepted the CI workflow, and `git diff --check` passed. GitHub-hosted workflow execution and Linux execution were not performed in that local worktree at that time. They have since passed on GitHub Actions for the published commit, including the Linux matrix, the Windows job, and the weekly scheduled run; two earlier branch runs were cancelled by concurrency. This records local implementation checks; release publication is documented separately in the v1.1.0 release notes.
+
+### Post-release audit verification (2026-11-05)
+
+The post-release audit added catalog-storefront precedence and singular remaining-batch regression coverage. The current suite is **66 unit tests** and **48 UI fixture scenarios**. A clean `npm ci`, `npm run audit`, `tsc --noEmit`, and the complete `npm run check` pass locally on Windows with Node **26.12.1**. These fixes have not been pushed or run on GitHub Actions yet. The published v1.1.0 ZIP is unchanged; the local build now contains post-release fixes and must ship as a new version rather than replace the published v1.1.0 asset.
+
+The manifest declares Chrome and Edge **111** as the compatibility floor. Automated browser coverage runs on Playwright's pinned Chromium **156.0.8078.4**; Chrome/Edge 111 remains a declared floor rather than an independently executed compatibility job. Live Apple Music, branded Edge, screen-reader speech, and additional account/region combinations still require manual verification.
 
 ## Manual checks
 

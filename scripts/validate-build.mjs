@@ -19,7 +19,7 @@ export async function validateBuild() {
     'background', 'externally_connectable', 'web_accessible_resources', 'side_panel']) assert.equal(manifest[key], undefined, key);
   assert.equal(manifest.action.default_popup, 'popup.html');
   assert.equal(manifest.content_security_policy.extension_pages,
-    "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'");
+    "default-src 'self'; script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'");
   const html = await readFile('dist/popup.html', 'utf8');
   assert.equal((html.match(/<script\b/g) || []).length, 1);
   assert.match(html, /<script type="module" src="popup\.js"><\/script>/);

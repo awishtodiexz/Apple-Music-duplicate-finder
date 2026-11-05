@@ -64,9 +64,11 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
 
     const playlist = request.playlist;
     if (!/^(p|pl)\.[A-Za-z0-9-]+$/.test(playlist.id)) fail('NOT_PLAYLIST');
-    const storefront = typeof instance.storefrontId === 'string' && /^[a-z]{2}$/.test(instance.storefrontId)
-      ? instance.storefrontId : playlist.storefront;
-    if (playlist.kind === 'catalog' && (!storefront || !/^[a-z]{2}$/.test(storefront))) fail('NOT_PLAYLIST');
+    // The visible route is authoritative. Only fall back to the player's
+    // storefront when the route does not carry one.
+    const storefront = [playlist.storefront, instance.storefrontId]
+      .find((value): value is string => typeof value === 'string' && /^[a-z]{2}$/.test(value)) ?? null;
+    if (playlist.kind === 'catalog' && !storefront) fail('NOT_PLAYLIST');
     const base = playlist.kind === 'library' ? '/v1/me/library/playlists/' + playlist.id :
       '/v1/catalog/' + storefront + '/playlists/' + playlist.id;
     if (request.action === 'tracks' && (!Number.isSafeInteger(request.offset) || request.offset < 0)) fail('FORMAT');

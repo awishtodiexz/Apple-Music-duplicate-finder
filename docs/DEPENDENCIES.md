@@ -6,7 +6,7 @@ The implementation review updated esbuild from 0.25.12 to 0.28.2 and Chrome typi
 
 Run `npm run audit` to audit every locked dependency, including development and optional packages. The implementation-time audit reported zero advisories; this is a point-in-time result, not a permanent safety guarantee. There are no accepted advisory exceptions or ignored vulnerabilities in the project.
 
-The weekly CI schedule repeats the audit. Dependabot checks npm packages and pinned GitHub Actions weekly and opens reviewable pull requests. For each update, inspect upstream release notes and advisories, update the lockfile through npm, then run `npm run check` and `npm run audit`. Keep the action pins at reviewed full commit SHAs and verify they belong to the official upstream repository.
+The weekly CI schedule repeats the audit. Dependabot checks npm packages and pinned GitHub Actions weekly and opens reviewable pull requests. Major updates of TypeScript and `@types/node` are ignored because Node typings track the oldest supported Node major and compiler majors require an explicit compatibility decision. For each other update, inspect upstream release notes and advisories, update the lockfile through npm, then run `npm run check` and `npm run audit`. Keep the action pins at reviewed full commit SHAs and verify they belong to the official upstream repository.
 
 Static security checks enforce the exact built-file allowlist, manifest permissions, CSP, safe rendering/network invariants, and selected current-file credential patterns. They never print matched secret values. They are not a full secret-history scanner or a substitute for code review.
 

@@ -12,7 +12,7 @@ window.MusicKit = { getInstance() {
       await new Promise(resolve => setTimeout(resolve, window.fixtureDelay || 25));
       const scenario = window.scenario;
       const offset = Number(new URL(path, location.origin).searchParams.get('offset'));
-      const length = scenario === 'empty' ? 0 : scenario === 'huge' ? 50001 : scenario === 'many' ? 2400 : 245;
+      const length = scenario === 'empty' ? 0 : scenario === 'huge' ? 50001 : scenario === 'many' ? 2400 : scenario === 'fiftyOne' ? 102 : 245;
       if (!path.includes('/tracks?')) return { data: [{ id: 'p.fixture', type: 'library-playlists',
         attributes: { name: scenario === 'coverage' ? 'Very long playlist name '.repeat(40) : '<img src=x onerror=alert(1)> My playlist', trackCount: scenario === 'coverage' ? undefined : scenario === 'incomplete' ? 250 : length,
           lastModifiedDate: scenario === 'noMarker' ? undefined : '2026-10-23T00:00:00Z' } }] };
@@ -31,7 +31,9 @@ window.MusicKit = { getInstance() {
           name: repeated ? 'Numb' : 'Song ' + index,
           artistName: repeated ? 'Linkin Park' : 'Artist',
           playParams: scenario === 'unknown' || (scenario === 'coverage' && index === 2) || (scenario === 'mixed' && index === 0) ? {} :
-            { catalogId: scenario === 'many' ? String(1000 + index % 1200) : repeated ? '123' : String(1000 + index) }
+            { catalogId: scenario === 'many' ? String(1000 + index % 1200) :
+              scenario === 'fiftyOne' ? String(1000 + Math.floor(index / 2)) :
+                repeated ? '123' : String(1000 + index) }
         } };
       }), meta: { total: scenario === 'coverage' ? undefined : scenario === 'incomplete' ? 250 : length } } };
     }

@@ -4,7 +4,7 @@
 
 - Node.js 22 (22.8+), 24, or 26 and npm. Use a current patched release; Node.js 24 is a suitable default. Odd-numbered and future major versions are not declared supported.
 - Git to clone the repository, or an extracted GitHub source archive.
-- A desktop Chromium browser for manual testing. Automated tests use the full Chromium browser pinned by the Playwright lockfile.
+- A desktop Chromium browser for manual testing. Automated tests use the full Chromium browser pinned by the Playwright lockfile. The extension manifest declares Chrome/Edge **111** as the minimum; automated fixtures run on the pinned current Chromium, so 111 compatibility remains a declaration rather than a separate automated job.
 
 ## Setup
 
@@ -55,7 +55,7 @@ New builds also generate a `.zip.sha256` sidecar. ZIP entry order and timestamps
 
 ## Continuous integration and dependency review
 
-The CI workflow runs on pushes, pull requests, manual dispatch, and a weekly schedule. Linux jobs exercise Node 22.8.0, current Node 22, 24, and 26; a Windows job exercises Node 24. All jobs use `npm ci`, pinned action commits, read-only repository permissions, and no persisted Git credentials. No job publishes a release or extension.
+The CI workflow runs on pushes, pull requests, manual dispatch, and a weekly schedule. Linux jobs exercise Node 22.8.0, current Node 22, 24, and 26; a Windows job exercises Node 24. All jobs use `npm ci`, pinned action commits, read-only repository permissions, and no persisted Git credentials. No job publishes a release or extension. Branch protection on `main` requires the five CI checks; private vulnerability reporting, secret scanning with push protection, Dependabot alerts/security updates, and CodeQL default setup are enabled.
 
 Dependabot proposes weekly npm and GitHub Actions updates. Review advisories and changelogs, update the lockfile, and run the complete checks before accepting an update. Do not automatically cross TypeScript major versions just to obtain a newer version. See [dependency security notes](DEPENDENCIES.md).
 
