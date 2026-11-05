@@ -2,7 +2,7 @@
 
 The extension has no production npm dependencies or remote runtime scripts. Development dependencies build, type-check, package, and test it. Commit `package-lock.json`; use `npm ci` for reproducible installations.
 
-The implementation review updated esbuild from 0.25.12 to 0.28.2 and Chrome typings from 0.1.43 to 0.3.6. Node typings now target Node 22, the oldest supported major. The unit runner uses esbuild and Node's own isolated test runner, removing tsx and its loader/runtime dependency surface. fflate remains pinned at 0.8.3, Playwright resolves to 1.64.1, and TypeScript stays on compatible 5.9.3 rather than crossing a major solely for novelty.
+The implementation review updated esbuild from 0.25.12 to 0.28.2 and Chrome typings from 0.1.43 to 0.3.7. Node typings now target Node 22, the oldest supported major. The unit runner uses esbuild and Node's own isolated test runner, removing tsx and its loader/runtime dependency surface. fflate remains pinned at 0.8.3, Playwright resolves to 1.64.1, and TypeScript stays on compatible 5.9.3 rather than crossing a major solely for novelty.
 
 Run `npm run audit` to audit every locked dependency, including development and optional packages. The implementation-time audit reported zero advisories; this is a point-in-time result, not a permanent safety guarantee. There are no accepted advisory exceptions or ignored vulnerabilities in the project.
 

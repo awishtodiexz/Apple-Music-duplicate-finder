@@ -37,7 +37,7 @@ The complete npm dependency audit reported **zero vulnerabilities**. `actionlint
 
 ### Post-release audit verification (2026-11-05)
 
-The post-release audit added catalog-storefront precedence and singular remaining-batch regression coverage. The current suite is **66 unit tests** and **48 UI fixture scenarios**. A clean `npm ci`, `npm run audit`, `tsc --noEmit`, and the complete `npm run check` pass locally on Windows with Node **26.12.1**. These fixes have not been pushed or run on GitHub Actions yet. The published v1.1.0 ZIP is unchanged; the local build now contains post-release fixes and must ship as a new version rather than replace the published v1.1.0 asset.
+The post-release audit added catalog-storefront precedence and singular remaining-batch regression coverage. The current suite is **66 unit tests** and **48 UI fixture scenarios**. A clean `npm ci`, `npm run audit`, `tsc --noEmit`, and the complete `npm run check` pass locally on Windows with Node **26.12.1**. These fixes were verified locally before being submitted for pull-request CI. The published v1.1.0 ZIP is unchanged; the local build now contains post-release fixes and must ship as a new version rather than replace the published v1.1.0 asset.
 
 The manifest declares Chrome and Edge **111** as the compatibility floor. Automated browser coverage runs on Playwright's pinned Chromium **156.0.8078.4**; Chrome/Edge 111 remains a declared floor rather than an independently executed compatibility job. Live Apple Music, branded Edge, screen-reader speech, and additional account/region combinations still require manual verification.
 
