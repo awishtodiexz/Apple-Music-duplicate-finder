@@ -1,4 +1,5 @@
 Apple Music Duplicate Finder v1.1.0 — Chromium Extension
+Requires Chrome or Edge 111 or newer.
 
 INSTALL
 1. Extract the release ZIP into a folder you intend to keep.

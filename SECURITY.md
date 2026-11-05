@@ -8,7 +8,7 @@ Security reports are accepted for the latest release, currently 1.1.0. This is a
 
 Please **do not publish sensitive security vulnerabilities or exploit instructions in public issues**.
 
-If this repository has GitHub private vulnerability reporting enabled, use its **Security → Report a vulnerability** flow. Otherwise, open a short issue requesting a private reporting channel, without including sensitive details.
+This repository uses GitHub private vulnerability reporting. Use the **Security → Report a vulnerability** flow; do not open a public issue for a sensitive report.
 
 Never send Apple Music passwords, cookies, authorization headers, user tokens, or private playlist contents.
 

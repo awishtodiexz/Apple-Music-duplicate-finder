@@ -21,6 +21,8 @@ A free Chrome and Edge extension that shows which songs appear more than once, a
 
 ## Installation
 
+Requires Chrome or Edge 111 or newer.
+
 1. [Download the extension ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.1.0/apple-music-duplicate-finder-v1.1.0.zip) and extract it into a folder you intend to keep.
 2. Open `chrome://extensions` in Chrome or `edge://extensions` in Edge.
 3. Enable **Developer mode**, then choose **Load unpacked**.

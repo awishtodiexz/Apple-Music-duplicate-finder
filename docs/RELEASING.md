@@ -9,6 +9,7 @@ Releases are prepared from reviewed source, merged through a pull request, and p
 3. Run `npm ci`, install the locked Chromium browser, then run `npm run check` and `npm run audit`. Validate `.github/workflows/ci.yml` with `actionlint`. Check every supported Node major, including the stated minimum where practical.
 4. Review the complete diff from the previous release. Confirm the duplicate matcher, native toolbar popup, styling, safe text rendering, and minimal permissions are preserved. Inspect the exact staged file list and exclude caches, browser profiles, temporary files, account data, and credentials.
 5. Commit and push the feature branch without force-pushing. Open a pull request against `main` with the change summary, executed checks, and known limitations. Resolve failures and wait for all required checks before merging; do not bypass protections.
+6. Confirm repository security settings: private vulnerability reporting enabled, secret scanning and push protection on, Dependabot alerts on, and `main` branch protection requiring the CI check.
 
 ## Package the merged source
 

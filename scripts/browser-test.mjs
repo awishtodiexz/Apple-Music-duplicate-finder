@@ -255,7 +255,15 @@ try {
     assert.equal(await popup.locator('#duplicate-list li').count(), 1200);
     assert.equal(await popup.locator('.positions').last().textContent(), 'Playlist positions: 1,200, 2,400');
     assert.equal(await popup.locator('#results-scroll').evaluate(el => el === document.activeElement), true);
-    console.log(`PASS (${apiMode}): reconnect, failed-scan recovery, unknown identity coverage, numeric progress, 2,400 tracks / 1,200 groups in batches, keyboard focus, document scrolling with real wheel input at three sizes (including 300px high) and both color schemes`);
+
+    await open('fiftyOne');
+    await scan();
+    assert.equal(await popup.locator('#duplicate-list li').count(), 50);
+    assert.equal(await popup.locator('#show-more').textContent(), 'Show 1 more song');
+    await popup.locator('#show-more').click();
+    assert.equal(await popup.locator('#duplicate-list li').count(), 51);
+    assert.equal(await popup.locator('#show-more').isVisible(), false);
+    console.log(`PASS (${apiMode}): reconnect, failed-scan recovery, unknown identity coverage, numeric progress, 2,400 tracks / 1,200 groups in batches, singular remaining batch, keyboard focus, document scrolling with real wheel input at three sizes (including 300px high) and both color schemes`);
   }
   assert.deepEqual(pageErrors, []);
   console.log(`PASS: ${scenarioCount} UI fixture scenarios across both API versions; no popup runtime exceptions`);

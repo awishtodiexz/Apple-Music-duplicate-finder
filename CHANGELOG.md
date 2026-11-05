@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Prefer the visible catalog playlist's storefront over the player's storefront, falling back to the player only when the route omits one.
+- Pluralize the remaining-results button correctly when exactly one song is left.
+- Add `default-src 'self'` to the extension-page CSP.
+- Add storefront and singular-batch regression coverage; refresh the README screenshot and verification notes.
+- Configure Dependabot to defer major updates of TypeScript and Node typings to an explicit compatibility review.
+- Route security reports through the security policy, add a pull-request checklist, and document required repository security settings.
+- Enable private vulnerability reporting, secret scanning and push protection, Dependabot alerts and security updates, CodeQL default setup, and required CI checks on `main`.
+
 ## [1.1.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.1.0) (2026-10-27)
 
 - Keep Node 22 support with isolated compiled unit tests; remove the version-specific test flag and tsx dependency.
