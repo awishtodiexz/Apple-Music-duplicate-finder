@@ -210,6 +210,28 @@ test('network failure on a later page does not produce partial results', async (
   };
   await assert.rejects(readPlaylist(source), { code: 'NETWORK' });
 });
+test('transient transport failures are retried and the scan still completes in order', async () => {
+  const { source } = sourceFor(245);
+  const page = source.page;
+  let failures = 0;
+  source.page = async offset => {
+    if (offset === 100 && failures < 2) { failures++; throw new ScanError('SERVER'); }
+    return page(offset);
+  };
+  const result = await readPlaylist(source);
+  assert.equal(failures, 2);
+  assert.equal(result.tracks.length, 245);
+  assert.equal(result.tracks[244]?.position, 245);
+});
+test('permanent failures are never retried', async () => {
+  let calls = 0;
+  const source: PlaylistSource = {
+    metadata: async () => { calls++; throw new ScanError('AUTH'); },
+    page: async () => { throw new Error('unreachable'); },
+  };
+  await assert.rejects(readPlaylist(source), { code: 'AUTH' });
+  assert.equal(calls, 1);
+});
 test('final metadata failure and playlist changes invalidate all results', async () => {
   for (const change of ['failure', 'total', 'modified', 'name']) {
     const source = sourceFor(10).source;

@@ -7,7 +7,13 @@ test('library playlist routes use exactly the visible ID', () => {
     const result = detectPlaylist(`https://music.apple.com${path}?l=en-US`);
     assert.equal(result.kind, 'library');
     assert.equal(result.id, 'p.abc123');
-    assert.equal(result.pathname, path);
+    assert.equal(result.pathname, path.replace(/\/$/, ''));
+  }
+});
+test('a trailing slash never changes the detected route', () => {
+  for (const path of ['/us/library/playlist/p.abc123', '/us/playlist/mix/pl.abc-123']) {
+    assert.deepEqual(detectPlaylist(`https://music.apple.com${path}/`),
+      detectPlaylist(`https://music.apple.com${path}`));
   }
 });
 test('catalog playlist route is separate from the library', () => {

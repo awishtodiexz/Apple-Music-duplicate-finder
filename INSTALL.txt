@@ -1,4 +1,4 @@
-Apple Music Duplicate Finder v1.1.1 — Chromium Extension
+Apple Music Duplicate Finder v1.1.2 — Chromium Extension
 Requires Chrome or Edge 111 or newer.
 
 INSTALL
@@ -12,7 +12,7 @@ INSTALL
 8. Use Cancel scan to stop; you can start a new scan immediately.
 
 LIMITS
-Scans stop after five minutes, 50,000 entries, 2,000 pages, or 16 million
+Scans stop after ten minutes, 50,000 entries, 2,000 pages, or 16 million
 metadata characters. Cancelled, failed, or limited scans accept no partial results.
 Avoid editing the playlist while scanning. Apple does not guarantee an atomic
 snapshot, and same-count edits may escape the available consistency checks.

@@ -10,5 +10,8 @@ export function detectPlaylist(rawUrl: string): PlaylistRef {
   const id = match?.groups?.id;
   if (!id || (match.groups?.library && !id.startsWith('p.'))) throw new ScanError('NOT_PLAYLIST');
   const kind = id.startsWith('p.') ? 'library' : 'catalog';
-  return { id, kind, storefront: match.groups?.store ?? null, pathname: url.pathname };
+  // The bridge compares this against the live location, which may add or drop a
+  // trailing slash after the player's router canonicalizes the URL.
+  const pathname = url.pathname.replace(/\/+$/, '') || '/';
+  return { id, kind, storefront: match.groups?.store ?? null, pathname };
 }

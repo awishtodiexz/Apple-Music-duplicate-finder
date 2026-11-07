@@ -10,7 +10,7 @@ npm run check
 npm run audit
 ```
 
-The expanded suites contain **66 unit tests**, **48 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
+The expanded suites contain **76 unit tests**, **48 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
 
 - Exact identifier matching, missing/conflicting identifiers, original order, and 10,000-entry inputs.
 - Pagination beyond 100 entries, exact page boundaries, short pages, changing totals, and final metadata validation.
@@ -27,7 +27,7 @@ Browser fixtures use mocked Apple Music responses and a Chrome API adapter. They
 
 The smoke suite opens one real toolbar popup and reloads its document between fixture scenarios, asserting a new document and cleared results before each scenario. This avoids a Windows native-widget close/reopen race in the test harness. It does not alter the production popup or prevent it from closing when focus is lost.
 
-CI is configured to run all checks on Node 22.8.0 and current Node 22/24/26 on Linux, plus Node 24 on Windows. The test runner compiles with the existing esbuild dependency and uses Node's default file isolation, without `--test-isolation` or tsx. Repository security settings are enabled for private vulnerability reporting, secret scanning with push protection, Dependabot alerts and security updates, CodeQL default setup, and required CI status checks on `main`. Fixture success does not prove full live Apple Music or branded-browser compatibility.
+CI runs typechecking and the unit suite on Node 22.8.0 and current Node 22/24/26 on Linux, and the complete `npm run check` (browser fixtures, installed-extension smoke, packaging and security) on Node 24 on Linux and Windows. The test runner compiles with the existing esbuild dependency and uses Node's default file isolation, without `--test-isolation` or tsx. Repository security settings are enabled for private vulnerability reporting, secret scanning with push protection, Dependabot alerts and security updates, CodeQL default setup, and required CI status checks on `main`. Fixture success does not prove full live Apple Music or branded-browser compatibility.
 
 ### Local implementation verification (2026-10-27)
 
@@ -35,9 +35,9 @@ A clean `npm ci` succeeded. The complete `npm run check` passed on Windows under
 
 The complete npm dependency audit reported **zero vulnerabilities**. `actionlint` 1.7.12 accepted the CI workflow, and `git diff --check` passed. GitHub-hosted workflow execution and Linux execution were not performed in that local worktree at that time. They have since passed on GitHub Actions for the published commit, including the Linux matrix, the Windows job, and the weekly scheduled run; two earlier branch runs were cancelled by concurrency. This records local implementation checks; release publication is documented separately in the release notes.
 
-### Post-release audit verification (2026-11-05)
+### Reliability audit verification (2026-11-07)
 
-The post-release audit added catalog-storefront precedence and singular remaining-batch regression coverage. The current suite is **66 unit tests** and **48 UI fixture scenarios**. A clean `npm ci`, `npm run audit`, `tsc --noEmit`, and the complete `npm run check` pass locally on Windows with Node **26.12.1**. These fixes were verified locally and in pull-request CI. They are packaged as v1.1.1; the published v1.1.0 asset remains unchanged.
+A full source audit hardened failure handling without changing matching, permissions, or the popup flow. The current suite is **76 unit tests** and **48 UI fixture scenarios**, and adds coverage for bounded injection timeouts, retry and no-retry paths, the shared error-code contract, serialized-function isolation, trailing-slash routing, and error-message classification. A clean `npm ci`, `npm run audit`, `tsc --noEmit`, and the complete `npm run check` pass locally on Windows with Node **26.12.1**. These changes are packaged as v1.1.2; published assets for earlier versions remain unchanged.
 
 The manifest declares Chrome and Edge **111** as the compatibility floor. Automated browser coverage runs on Playwright's pinned Chromium **156.0.8078.4**; Chrome/Edge 111 remains a declared floor rather than an independently executed compatibility job. Live Apple Music, branded Edge, screen-reader speech, and additional account/region combinations still require manual verification.
 
