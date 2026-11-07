@@ -29,11 +29,18 @@ const batchSize = 50;
 let groups: DuplicateGroup[] = [];
 let displayed = 0;
 let scanController: AbortController | null = null;
+// Progress arrives once per page; the live region must not re-announce the whole
+// status block hundreds of times during a large scan.
+const statusThrottleMs = 1_000;
+let lastStatusWrite = 0;
 
 function setStatus(title: string, detail: string, error = false): void {
-  statusTitle.textContent = title;
-  statusDetail.textContent = detail;
+  // Assigning identical text still replaces the node and re-triggers a live
+  // region announcement, so only write what actually changed.
+  if (statusTitle.textContent !== title) statusTitle.textContent = title;
+  if (statusDetail.textContent !== detail) statusDetail.textContent = detail;
   status.dataset.error = String(error);
+  lastStatusWrite = Date.now();
 }
 
 function clearGroups(): void {
@@ -86,8 +93,8 @@ async function initialize(): Promise<void> {
   setStatus('Connecting to Apple Music…', 'Checking the current playlist.');
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const playlist = detectPlaylist(tab?.url ?? '');
     if (tab?.id === undefined) throw new Error('Tab unavailable');
+    const playlist = detectPlaylist(tab.url ?? '');
     const candidate = createBrowserSource(tab.id, playlist);
     const info = await candidate.metadata();
     source = candidate;
@@ -128,15 +135,20 @@ scan.addEventListener('click', async () => {
   progress.hidden = false;
   progress.removeAttribute('value');
   setStatus('Scanning playlist…', 'Connecting to Apple Music…');
+  // A live region announces every text mutation. Hold announcements while pages
+  // stream in, then release them once the final state has been written.
+  status.setAttribute('aria-busy', 'true');
   try {
     const result = await readPlaylist(source, ({ retrieved, total, elapsedMs, phase }) => {
-      const count = total === null ? number(retrieved) : `${number(retrieved)} of ${number(total)}`;
-      setStatus(phase === 'validating' ? 'Checking playlist…' : 'Scanning playlist…',
-        `${count} songs retrieved · ${Math.floor(elapsedMs / 1000)}s elapsed\nKeep this popup open while scanning.`);
       if (total !== null && total > 0) {
         progress.max = total;
         progress.value = retrieved;
       } else progress.removeAttribute('value');
+      const timestamp = Date.now();
+      if (phase === 'reading' && timestamp - lastStatusWrite < statusThrottleMs) return;
+      const count = total === null ? number(retrieved) : `${number(retrieved)} of ${number(total)}`;
+      setStatus(phase === 'validating' ? 'Checking playlist…' : 'Scanning playlist…',
+        `${count} songs retrieved · ${Math.floor(elapsedMs / 1000)}s elapsed\nKeep this popup open while scanning.`);
     }, { signal: controller.signal });
     const duplicates = findDuplicates(result.tracks);
     playlistName.textContent = result.info.name;
@@ -170,6 +182,7 @@ scan.addEventListener('click', async () => {
     scan.disabled = false;
     scan.textContent = source ? 'Scan for Duplicates' : 'Retry connection';
     progress.hidden = true;
+    status.setAttribute('aria-busy', 'false');
   }
 });
 

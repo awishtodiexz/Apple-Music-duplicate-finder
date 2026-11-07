@@ -1,4 +1,4 @@
-import type { BridgeReply, BridgeRequest, ErrorCode, PlaylistInfo, Track, TrackPage } from './types';
+import type { BridgeErrorCode, BridgeReply, BridgeRequest, PlaylistInfo, Track, TrackPage } from './types';
 
 /**
  * Serialized by chrome.scripting into MAIN. MUST have no runtime closure dependencies.
@@ -8,7 +8,7 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
   type Obj = Record<string, unknown>;
   const obj = (value: unknown): Obj | null =>
     value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Obj : null;
-  const fail = (code: ErrorCode): never => { throw { safeCode: code }; };
+  const fail = (code: BridgeErrorCode): never => { throw { safeCode: code }; };
   const text = (value: unknown, fallback: string): string =>
     typeof value === 'string' && value.trim() ? value.slice(0, 2000) : fallback;
   const numericId = (value: unknown): string | null =>
@@ -19,10 +19,12 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
     return value as number;
   };
   const checkPage = (): void => {
+    // Trailing slashes are cosmetic; Apple's router may add or drop one at any time.
+    const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
     if (window.location.origin !== 'https://music.apple.com' ||
-      window.location.pathname !== request.playlist.pathname) fail('PAGE_CHANGED');
+      pathname !== request.playlist.pathname) fail('PAGE_CHANGED');
   };
-  const statusCode = (value: unknown): ErrorCode => {
+  const statusCode = (value: unknown): BridgeErrorCode => {
     const e = obj(value) ?? (Array.isArray(value) ? obj(value[0]) : null);
     const data = obj(e?.data);
     const response = obj(e?.response);
@@ -34,7 +36,8 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
     if (status === 401 || status === 403) return 'AUTH';
     if (status === 404) return 'NOT_FOUND';
     if (status === 429) return 'RATE_LIMIT';
-    if (status !== undefined) return 'API';
+    // 5xx is transient and retried by the reader; 4xx is a permanent rejection.
+    if (status !== undefined) return status >= 500 ? 'SERVER' : 'API';
     switch (e?.reason ?? e?.errorCode) {
       case 'AUTHORIZATION_ERROR':
       case 'UNAUTHORIZED_ERROR':
@@ -45,7 +48,7 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
       case 'CONFIGURATION_ERROR': return 'MUSICKIT_UNAVAILABLE';
       case 'PARSE_ERROR': return 'FORMAT';
       case 'SERVER_ERROR':
-      case 'SERVICE_UNAVAILABLE':
+      case 'SERVICE_UNAVAILABLE': return 'SERVER';
       case 'REQUEST_ERROR': return 'API';
       default: return 'NETWORK';
     }
@@ -190,9 +193,13 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
   } catch (error) {
     const safe = obj(error)?.safeCode;
     // Only our fixed codes, never Apple exception text, headers, or tokens.
-    const codes: ErrorCode[] = ['NOT_PLAYLIST', 'PAGE_CHANGED', 'MUSICKIT_UNAVAILABLE', 'AUTH',
-      'RATE_LIMIT', 'NETWORK', 'TIMEOUT', 'NOT_FOUND', 'API', 'FORMAT', 'INCOMPLETE', 'CANCELLED'];
-    return { ok: false, code: codes.includes(safe as ErrorCode) ? safe as ErrorCode : statusCode(error) };
+    // This list mirrors bridgeErrorCodes in types.ts and must stay self-contained:
+    // the function is serialized into the page and loses its module scope.
+    const codes = ['NOT_PLAYLIST', 'PAGE_CHANGED', 'MUSICKIT_UNAVAILABLE', 'AUTH',
+      'RATE_LIMIT', 'NETWORK', 'TIMEOUT', 'NOT_FOUND', 'API', 'SERVER', 'FORMAT', 'INCOMPLETE',
+      'CANCELLED'] as const satisfies readonly BridgeErrorCode[];
+    return { ok: false, code: typeof safe === 'string' && (codes as readonly string[]).includes(safe) ?
+      safe as BridgeErrorCode : statusCode(error) };
   }
 }
 

@@ -1,7 +1,21 @@
 # Changelog
 
-## Unreleased
+## [1.1.2](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.1.2) (2026-11-07)
 
+Reliability hardening after a full source audit. Matching rules, permissions, and the popup flow are unchanged.
+
+- Retry transient failures (network, timeout, rate limit, 5xx) with bounded backoff instead of discarding an entire scan; add a `SERVER` code so permanent 4xx rejections are still not retried.
+- Bound page injection to 30 seconds so a wedged renderer or discarded tab can no longer leave the popup waiting forever.
+- Report unexpected extension failures honestly and log them, keep tab-access guidance for real permission denials, and report a closed tab as a playlist change.
+- Raise the overall scan deadline from five to ten minutes so the documented 50,000-entry limit is reachable, and make the deadline clock monotonic.
+- Normalize trailing slashes in playlist routes so the popup and page agree after router canonicalization.
+- Throttle scan progress and hold live-region announcements while pages stream in, so screen readers are not flooded.
+- Validate error codes against one shared list, with compile-time guards and a serialized-function isolation test.
+- Derive the manifest version from `package.json` at build time.
+- Add `form-action 'none'` and `frame-src 'none'` to the extension-page CSP.
+- Minify the production bundle (17 KB from 27 KB).
+- Run the browser, installed-extension, and packaging suites once per operating system in CI; stop gating releases on low-severity development-only advisories.
+- Add ten unit tests, including the serialization guard, error-message coverage, retry behavior, injection timeout, and trailing-slash routing.
 - Move community files into `.github/`, keep the root tree focused, and update contributing, security, and license attribution.
 - Add direct private vulnerability reporting and contributor branch-protection guidance.
 

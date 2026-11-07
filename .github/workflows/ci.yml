@@ -31,12 +31,19 @@ jobs:
           node-version: ${{ matrix.node }}
           package-manager-cache: false
       - run: npm ci
-      - name: Audit all dependencies, including development dependencies
+      - name: Audit dependencies for high-severity advisories
         run: npm run audit
+      # Browser, extension and packaging suites need a pinned Chromium; they run on
+      # one matrix entry while every supported Node version still typechecks and tests.
       - name: Install pinned Chromium and operating-system dependencies
+        if: matrix.node == '24'
         run: npx --no-install playwright install --with-deps chromium
       - name: Typecheck, unit tests, fixtures, installed extension, production build and package verification
+        if: matrix.node == '24'
         run: npm run check
+      - name: Typecheck and unit tests
+        if: matrix.node != '24'
+        run: npm run typecheck && npm test
 
   windows:
     runs-on: windows-2025
@@ -50,5 +57,6 @@ jobs:
           node-version: '24'
           package-manager-cache: false
       - run: npm ci
+      - run: npm run audit
       - run: npx --no-install playwright install chromium
       - run: npm run check

@@ -52,3 +52,20 @@ test('a pre-cancelled transport does not inject', async () => {
   await assert.rejects(createBrowserSource(1, playlist).metadata(controller.signal), { code: 'CANCELLED' });
   assert.equal(calls, 0);
 });
+
+test('a wedged injection times out instead of hanging the popup forever', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const requests: Injection[] = [];
+  setup((request) => { requests.push(request); return new Promise(() => {}); });
+  const pending = createBrowserSource(1, playlist).metadata();
+  t.mock.timers.tick(30_000);
+  await assert.rejects(pending, { code: 'TIMEOUT' });
+  // The read plus a separate page-side cancel so the page does not keep working.
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1]!.func, cancelMusicKitRead);
+});
+
+test('a closed tab is reported as a playlist change, not a permission problem', async () => {
+  setup(async () => { throw new Error('No tab with id: 7.'); });
+  await assert.rejects(createBrowserSource(1, playlist).metadata(), { code: 'PAGE_CHANGED' });
+});

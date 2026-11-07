@@ -135,7 +135,7 @@ test('malformed response formats, tracks and counts fail, never become empty pag
   }
 });
 test('authentication, rate limits, API status and network failures return fixed safe errors', async () => {
-  for (const [status, code] of [[401, 'AUTH'], [403, 'AUTH'], [404, 'NOT_FOUND'], [429, 'RATE_LIMIT'], [503, 'API']] as const) {
+  for (const [status, code] of [[401, 'AUTH'], [403, 'AUTH'], [404, 'NOT_FOUND'], [429, 'RATE_LIMIT'], [503, 'SERVER'], [400, 'API']] as const) {
     setup(() => { throw { status, message: 'secret', headers: { Authorization: 'secret' } }; });
     assert.deepEqual(await musicKitBridge(request), { ok: false, code });
     setup(() => ({ errors: [{ status: String(status), detail: 'secret' }] }));
@@ -233,7 +233,7 @@ test('legacy GET remains bound to its API object', async () => {
   assert.equal((await musicKitBridge(request)).ok, true);
 });
 test('nested MusicKit HTTP errors and raw error arrays map to safe actionable codes', async () => {
-  for (const [status, code] of [[401, 'AUTH'], [403, 'AUTH'], [404, 'NOT_FOUND'], [429, 'RATE_LIMIT'], [503, 'API']] as const) {
+  for (const [status, code] of [[401, 'AUTH'], [403, 'AUTH'], [404, 'NOT_FOUND'], [429, 'RATE_LIMIT'], [503, 'SERVER'], [400, 'API']] as const) {
     for (const error of [
       { data: new Response(null, { status }), reason: 'UNKNOWN_ERROR' },
       { status: 0, data: { status: String(status) }, message: 'private' },
@@ -251,7 +251,7 @@ test('MusicKit error reasons work without HTTP status and do not expose exceptio
     ['AUTHORIZATION_ERROR', 'AUTH'], ['UNAUTHORIZED_ERROR', 'AUTH'], ['ACCESS_DENIED', 'AUTH'],
     ['TOKEN_EXPIRED', 'AUTH'], ['QUOTA_EXCEEDED', 'RATE_LIMIT'], ['NOT_FOUND', 'NOT_FOUND'],
     ['CONFIGURATION_ERROR', 'MUSICKIT_UNAVAILABLE'], ['NETWORK_ERROR', 'NETWORK'],
-    ['SERVER_ERROR', 'API'], ['SERVICE_UNAVAILABLE', 'API'], ['REQUEST_ERROR', 'API'],
+    ['SERVER_ERROR', 'SERVER'], ['SERVICE_UNAVAILABLE', 'SERVER'], ['REQUEST_ERROR', 'API'],
     ['PARSE_ERROR', 'FORMAT'], ['unrecognized reason', 'NETWORK'], ['toString', 'NETWORK'],
   ] as const) {
     for (const error of [{ reason, description: 'private' }, { errorCode: reason, message: 'private' }]) {
@@ -265,7 +265,7 @@ test('numeric HTTP status takes precedence over generic MusicKit reasons', async
   assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'RATE_LIMIT' });
 });
 test('resolved MusicKit wrappers with failed HTTP status never become successful empty pages', async () => {
-  for (const [status, code] of [[401, 'AUTH'], [429, 'RATE_LIMIT'], [503, 'API']] as const) {
+  for (const [status, code] of [[401, 'AUTH'], [429, 'RATE_LIMIT'], [503, 'SERVER']] as const) {
     for (const response of [
       { response: { status }, data: { data: [] } },
       { response: new Response(null, { status }), json: { data: [] } },

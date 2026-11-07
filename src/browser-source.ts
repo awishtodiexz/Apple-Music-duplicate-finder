@@ -1,13 +1,26 @@
 import { ScanError } from './errors';
 import { cancelMusicKitRead, musicKitBridge } from './musickit-bridge';
 import type { PlaylistSource } from './playlist-reader';
-import type { BridgeReply, BridgeRequest, PlaylistInfo, PlaylistRef, TrackPage } from './types';
+import { bridgeErrorCodes, type BridgeReply, type BridgeRequest, type PlaylistInfo, type PlaylistRef, type TrackPage } from './types';
+
+/**
+ * A wedged renderer, a discarded tab or a navigation can leave executeScript
+ * unsettled forever. The page-side timeout cannot help there because it only
+ * starts after the injected function begins running.
+ */
+const injectionTimeoutMs = 30_000;
 
 export function createBrowserSource(tabId: number, playlist: PlaylistRef): PlaylistSource {
   async function call(request: BridgeRequest, signal?: AbortSignal): Promise<PlaylistInfo | TrackPage> {
     if (signal?.aborted) throw new ScanError('CANCELLED');
     const requestId = crypto.randomUUID();
     let abort: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const cancelInPage = (): void => {
+      // Best effort: navigation/permission loss may prevent this injection.
+      void chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, world: 'MAIN',
+        func: cancelMusicKitRead, args: [requestId] }).catch(() => {});
+    };
     const pending = chrome.scripting.executeScript({
       target: { tabId, frameIds: [0] },
       world: 'MAIN',
@@ -18,14 +31,12 @@ export function createBrowserSource(tabId: number, playlist: PlaylistRef): Playl
       const frames = await Promise.race([
         pending,
         new Promise<never>((_, reject) => {
-          abort = () => {
-            reject(new ScanError('CANCELLED'));
-            // Best effort: navigation/permission loss may prevent this injection.
-            void chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, world: 'MAIN',
-              func: cancelMusicKitRead, args: [requestId] }).catch(() => {});
-          };
+          abort = () => { reject(new ScanError('CANCELLED')); cancelInPage(); };
           signal?.addEventListener('abort', abort, { once: true });
           if (signal?.aborted) abort();
+        }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => { reject(new ScanError('TIMEOUT')); cancelInPage(); }, injectionTimeoutMs);
         }),
       ]);
       if (signal?.aborted) throw new ScanError('CANCELLED');
@@ -33,9 +44,7 @@ export function createBrowserSource(tabId: number, playlist: PlaylistRef): Playl
       if (!reply) throw new ScanError('PAGE_CHANGED');
       if (typeof reply.ok !== 'boolean') throw new ScanError('FORMAT');
       if (!reply.ok) {
-        const codes = ['NOT_PLAYLIST', 'PAGE_CHANGED', 'MUSICKIT_UNAVAILABLE', 'AUTH', 'RATE_LIMIT', 'NETWORK',
-          'TIMEOUT', 'NOT_FOUND', 'API', 'FORMAT', 'INCOMPLETE', 'CANCELLED'];
-        if (!codes.includes(reply.code)) throw new ScanError('FORMAT');
+        if (!bridgeErrorCodes.includes(reply.code)) throw new ScanError('FORMAT');
         throw new ScanError(reply.code);
       }
       // The page is an untrusted boundary; TypeScript alone cannot validate it.
@@ -58,7 +67,15 @@ export function createBrowserSource(tabId: number, playlist: PlaylistRef): Playl
         }
       }
       return data;
+    } catch (error) {
+      // A closed or replaced tab is a playlist change, not a permission problem.
+      const message = String((error as { message?: unknown })?.message ?? '');
+      if (!(error instanceof ScanError) && /No tab with id|The tab was closed|Invalid tab ID/i.test(message)) {
+        throw new ScanError('PAGE_CHANGED');
+      }
+      throw error;
     } finally {
+      clearTimeout(timer);
       if (abort) signal?.removeEventListener('abort', abort);
     }
   }

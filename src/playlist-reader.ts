@@ -1,5 +1,5 @@
 import { ScanError } from './errors';
-import type { PlaylistInfo, Track, TrackPage } from './types';
+import type { ErrorCode, PlaylistInfo, Track, TrackPage } from './types';
 
 export interface PlaylistSource {
   metadata(signal?: AbortSignal): Promise<PlaylistInfo>;
@@ -17,7 +17,16 @@ export interface PlaylistScan {
   countVerified: boolean;
   modificationChecked: boolean;
 }
-export const scanLimits = { deadlineMs: 300_000, maxTracks: 50_000, maxPages: 2_000, maxMetadataChars: 16_000_000 } as const;
+export const scanLimits = { deadlineMs: 600_000, maxTracks: 50_000, maxPages: 2_000, maxMetadataChars: 16_000_000 } as const;
+
+/**
+ * Every request is an idempotent GET and each page is re-validated for contiguous
+ * positions, totals and continuation offsets before it is accepted, so retrying
+ * the same offset cannot smuggle in partial or reordered data.
+ */
+const retryableErrors: ReadonlySet<ErrorCode> = new Set(['NETWORK', 'TIMEOUT', 'RATE_LIMIT', 'SERVER']);
+const retryDelaysMs: readonly number[] = [500, 1_500];
+
 export interface ScanOptions {
   signal?: AbortSignal;
   // Callers may tighten, but cannot bypass the production safety bounds.
@@ -47,9 +56,15 @@ export async function readPlaylist(
   options.signal?.addEventListener('abort', cancel, { once: true });
   if (options.signal?.aborted) cancel();
   const started = Date.now();
+  // Wall clock can jump backwards; the deadline must never extend because of it.
+  let lastTimestamp = started;
+  const now = (): number => {
+    lastTimestamp = Math.max(lastTimestamp, Date.now());
+    return lastTimestamp;
+  };
   const timer = setTimeout(() => controller.abort(new ScanError('DEADLINE')), deadlineMs);
   const check = (): void => {
-    if (!controller.signal.aborted && Date.now() - started >= deadlineMs) controller.abort(new ScanError('DEADLINE'));
+    if (!controller.signal.aborted && now() - started >= deadlineMs) controller.abort(new ScanError('DEADLINE'));
     if (controller.signal.aborted) throw controller.signal.reason;
   };
   // Also handles sources that cannot abort: late replies cannot advance this scan.
@@ -68,14 +83,34 @@ export async function readPlaylist(
       if (abort) controller.signal.removeEventListener('abort', abort);
     }
   }
+  const sleep = (ms: number): Promise<void> => new Promise((resolve, reject) => {
+    if (controller.signal.aborted) { reject(controller.signal.reason); return; }
+    const timer = setTimeout(() => { controller.signal.removeEventListener('abort', onAbort); resolve(); }, ms);
+    const onAbort = (): void => { clearTimeout(timer); reject(controller.signal.reason); };
+    controller.signal.addEventListener('abort', onAbort, { once: true });
+  });
+  // A single transient failure must not discard a long scan; only retryable
+  // transport failures are repeated, and the overall deadline still applies.
+  async function readWithRetry<T>(operation: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await read(operation);
+      } catch (error) {
+        if (!(error instanceof ScanError) || !retryableErrors.has(error.code) ||
+          attempt >= retryDelaysMs.length) throw error;
+        await sleep(retryDelaysMs[attempt]!);
+        check();
+      }
+    }
+  }
   try {
-    const info = await read(() => source.metadata(controller.signal));
+    const info = await readWithRetry(() => source.metadata(controller.signal));
     let total = info.total;
     const tracks: Track[] = [];
     let metadataChars = 0;
     const progress = (phase: ScanProgress['phase']): void => {
       check();
-      onProgress({ retrieved: tracks.length, total, elapsedMs: Date.now() - started, phase });
+      onProgress({ retrieved: tracks.length, total, elapsedMs: now() - started, phase });
       check();
     };
     if (total !== null && total > maxTracks) throw new ScanError('LIMIT');
@@ -83,7 +118,7 @@ export async function readPlaylist(
     let finished = false;
     for (let pageNumber = 0; pageNumber < maxPages; pageNumber++) {
       const offset = tracks.length;
-      const page = await read(() => source.page(offset, controller.signal));
+      const page = await readWithRetry(() => source.page(offset, controller.signal));
       if (page.total !== null) {
         if (total !== null && total !== page.total) throw new ScanError('INCOMPLETE');
         total = page.total;
@@ -113,7 +148,7 @@ export async function readPlaylist(
     }
     if (!finished) throw new ScanError('LIMIT');
     progress('validating');
-    const after = await read(() => source.metadata(controller.signal));
+    const after = await readWithRetry(() => source.metadata(controller.signal));
     if ((after.total !== null && after.total !== tracks.length) ||
       (info.modified !== null && after.modified !== info.modified) ||
       (info.revision != null && after.revision !== info.revision) || after.name !== info.name) {
