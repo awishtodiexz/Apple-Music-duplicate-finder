@@ -4,7 +4,7 @@ import { createBrowserSource } from '../src/browser-source';
 import { cancelMusicKitRead } from '../src/musickit-bridge';
 import type { BridgeRequest } from '../src/types';
 
-const playlist = { id: 'p.test', kind: 'library' as const, storefront: 'us', pathname: '/us/library/playlist/p.test' };
+const playlist = { id: 'p.test', kind: 'library' as const, storefront: 'us' };
 interface Injection { func: unknown; world: string; args: unknown[]; }
 function setup(executeScript: (request: Injection) => unknown,
   getTab: ((tabId: number) => unknown) | null = null): void {

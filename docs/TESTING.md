@@ -12,7 +12,7 @@ npm run audit
 
 `npm run benchmark` reports the reader, matcher, and CSV CPU cost for 1,000, 10,000, and 50,000 tracks. It does not simulate Apple network latency, so the reader deadline remains the authority for live scans.
 
-The expanded suites contain **92 unit tests**, **56 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
+The expanded suites contain **104 unit tests**, **56 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
 
 - Exact identifier matching, missing/conflicting identifiers, original order, and 10,000-entry inputs.
 - Pagination beyond 100 entries, exact page boundaries, short pages, changing totals, and final metadata validation.
@@ -21,7 +21,7 @@ The expanded suites contain **92 unit tests**, **56 browser fixture scenarios**,
 - Search, sort, copy, CSV export, cached-last-scan restore and explicit clear, extra-copy counts, and collapsed position lists for very large duplicate groups.
 - Cached results paint before the player connects and stay visible when MusicKit is unavailable; the badge is cleared when the popup opens on a different playlist, and the first scan reuses the connection metadata.
 - Error-code diagnostics, retry-after propagation, internal-error classification, and localized tab-access handling through tab state.
-- Icon paths and dimensions, keyboard focus, and document scrolling down to 300 × 300 pixels in light and dark modes.
+- Icon paths and dimensions, keyboard focus, and document scrolling down to 300 Ã— 300 pixels in light and dark modes.
 - The theme control: Auto follows the emulated system scheme, Light and Dark override it, and an explicit choice survives a popup reload.
 - The 50,000-entry boundary, metadata/page budgets, overall deadlines during metadata/pages/final validation, prompt cancellation, late replies, and independent concurrent scans.
 - Reordering, replacing, renaming, adding, and removing entries via changed metadata markers, and explicit unverified-consistency status when markers are absent.
@@ -47,7 +47,7 @@ A full source audit hardened failure handling without changing matching, permiss
 
 ### Unreleased follow-up verification (2026-11-08)
 
-The follow-up suite is **92 unit tests** and **56 UI fixture scenarios**. It adds retry-after propagation, internal-error classification, localized tab-access handling, search, sorting, copy text, CSV escaping, bounded local caching and clear, extra-copy counts, and large-group position collapsing. A clean `npm ci`, `npm run check:docs`, `npm run benchmark`, and the complete `npm run check` pass locally on Windows with Node **26.12.1**. The benchmark measures CPU/pagination overhead only; live network latency and the ten-minute deadline remain the limiting factors for very large scans.
+The follow-up suite is **104 unit tests** and **56 UI fixture scenarios**. It adds retry-after propagation, internal-error classification, localized tab-access handling, search, sorting, copy text, CSV escaping, bounded local caching and clear, extra-copy counts, large-group position collapsing, theme persistence, cached results with an unavailable player, badge clearing across playlists, metadata reuse, tolerant route parsing, and projected-deadline abort. A clean `npm ci`, `npm run check:docs`, `npm run benchmark`, and the complete `npm run check` pass locally on Windows with Node **26.12.1**. The benchmark measures CPU/pagination overhead only; live network latency and the ten-minute deadline remain the limiting factors for very large scans.
 
 The manifest declares Chrome and Edge **111** as the compatibility floor. Automated browser coverage runs on Playwright's pinned Chromium **156.0.8078.4**; Chrome/Edge 111 remains a declared floor rather than an independently executed compatibility job. Live Apple Music, branded Edge, screen-reader speech, and additional account/region combinations still require manual verification.
 

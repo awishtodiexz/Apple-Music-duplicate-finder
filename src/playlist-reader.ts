@@ -160,6 +160,17 @@ export async function readPlaylist(
       if (metadataChars > maxMetadataChars) throw new ScanError('LIMIT');
       tracks.push(...page.tracks);
       if (total !== null && tracks.length > total) throw new ScanError('INCOMPLETE');
+      // If the observed pace cannot finish the remaining pages, stop now instead
+      // of holding the popup for the rest of the deadline. The 1.25 margin keeps
+      // a slow page or two from aborting a scan that is still on track.
+      if (total !== null && pageNumber >= 4) {
+        const remainingPages = Math.ceil((total - tracks.length) / 100);
+        const elapsed = now() - started;
+        const averagePageMs = elapsed / (pageNumber + 1);
+        if (remainingPages >= 10 && averagePageMs * remainingPages > (deadlineMs - elapsed) * 1.25) {
+          throw new ScanError('DEADLINE');
+        }
+      }
       progress('reading');
       if (page.nextOffset !== null) {
         if (!page.tracks.length || page.nextOffset !== tracks.length || total === tracks.length) throw new ScanError('INCOMPLETE');

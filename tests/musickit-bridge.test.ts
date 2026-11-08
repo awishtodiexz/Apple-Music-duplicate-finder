@@ -3,13 +3,13 @@ import test from 'node:test';
 import { cancelMusicKitRead, musicKitBridge } from '../src/musickit-bridge';
 import type { BridgeRequest, PlaylistInfo, TrackPage } from '../src/types';
 
-const playlist = { id: 'p.test', kind: 'library' as const, storefront: 'us', pathname: '/us/library/playlist/p.test' };
+const playlist = { id: 'p.test', kind: 'library' as const, storefront: 'us' };
 const request: BridgeRequest = { action: 'tracks', playlist, offset: 0 };
 const song = (extra = {}) => ({ type: 'library-songs', id: 'i.same',
   attributes: { name: 'Numb', artistName: 'Linkin Park', playParams: { catalogId: '123' } }, ...extra });
 function setup(get: (path: string) => unknown, instanceExtra = {}) {
   const calls: string[] = [];
-  const win = { location: { origin: 'https://music.apple.com', pathname: playlist.pathname },
+  const win = { location: { origin: 'https://music.apple.com', pathname: '/us/library/playlist/p.test' },
     MusicKit: { getInstance: () => Object.defineProperties(
       { isAuthorized: true, api: { get(path: string) { calls.push(path); return get(path); } } },
       Object.getOwnPropertyDescriptors(instanceExtra),
@@ -172,26 +172,23 @@ test('navigation before and during a request invalidates it', async () => {
 });
 test('catalog routes use the same MusicKit integration, never a library-name search', async () => {
   const { win, calls } = setup(() => ({ data: [] }), { storefrontId: 'gb' });
-  const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const,
-    storefront: 'gb', pathname: '/gb/playlist/mix/pl.abc' };
-  win.location.pathname = catalog.pathname;
+  const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const, storefront: 'gb' };
+  win.location.pathname = '/gb/playlist/mix/pl.abc';
   assert.equal((await musicKitBridge({ action: 'tracks', playlist: catalog, offset: 0 })).ok, true);
   assert.equal(calls[0], '/v1/catalog/gb/playlists/pl.abc/tracks?limit=100&offset=0');
 });
 test('catalog routes prefer the visible storefront over the player storefront', async () => {
   const { win, calls } = setup(() => ({ data: [] }), { storefrontId: 'gb' });
-  const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const,
-    storefront: 'us', pathname: '/us/playlist/mix/pl.abc' };
-  win.location.pathname = catalog.pathname;
+  const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const, storefront: 'us' };
+  win.location.pathname = '/us/playlist/mix/pl.abc';
   assert.deepEqual(await musicKitBridge({ action: 'tracks', playlist: catalog, offset: 0 }),
     { ok: true, data: { tracks: [], total: null, nextOffset: null } });
   assert.equal(calls[0], '/v1/catalog/us/playlists/pl.abc/tracks?limit=100&offset=0');
 });
 test('catalog routes fall back to the player storefront only when the route omits one', async () => {
   const { win, calls } = setup(() => ({ data: [] }), { storefrontId: 'gb' });
-  const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const,
-    storefront: null, pathname: '/playlist/mix/pl.abc' };
-  win.location.pathname = catalog.pathname;
+  const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const, storefront: null };
+  win.location.pathname = '/playlist/mix/pl.abc';
   assert.equal((await musicKitBridge({ action: 'tracks', playlist: catalog, offset: 0 })).ok, true);
   assert.equal(calls[0], '/v1/catalog/gb/playlists/pl.abc/tracks?limit=100&offset=0');
 });

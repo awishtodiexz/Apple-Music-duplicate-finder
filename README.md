@@ -53,7 +53,7 @@ No development tools are needed. On the [release page](../../releases/latest), c
 2. Open the extension and check the **Current playlist** name.
 3. Click **Scan for Duplicates** and keep the popup open until it finishes.
 
-Use **Cancel scan** to stop and start again. Cancelled, timed-out, failed, or resource-limited scans discard their results. Scans are limited to ten minutes, 50,000 entries, 2,000 pages, and 16 million metadata characters.
+Use **Cancel scan** to stop and start again. Cancelled, timed-out, failed, or resource-limited scans discard their results. Scans are limited to ten minutes, 50,000 entries, 2,000 pages, and 16 million metadata characters. The deadline is wall-clock, and 50,000 entries means 500 sequential 100-entry requests, so a slow connection reaches the ten-minute limit before the entry limit. A scan that is clearly too slow to finish stops early with the same deadline message instead of holding the popup for the full ten minutes.
 
 **â€œThis song appears twiceâ€** at **positions 12 and 84** means it is listed at number 12 and again at number 84. You can review those entries in Apple Music and remove unwanted ones yourself. Rescan after changing the playlist.
 

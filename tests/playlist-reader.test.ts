@@ -79,6 +79,25 @@ test('a modification marker appearing mid-scan invalidates the result', async ()
   await assert.rejects(readPlaylist(changing), { code: 'INCOMPLETE' });
 });
 
+test('a scan that cannot finish in time stops early instead of burning the deadline', async () => {
+  const total = 5_000;
+  let pages = 0;
+  const all = entries(total);
+  const source: PlaylistSource = {
+    metadata: async () => ({ ...info, total }),
+    page: async offset => {
+      pages++;
+      await new Promise(resolve => setTimeout(resolve, 150));
+      return { tracks: all.slice(offset, offset + 100), total, nextOffset: null };
+    },
+  };
+  const startedAt = Date.now();
+  await assert.rejects(readPlaylist(source, () => {}, { deadlineMs: 2_500 }), { code: 'DEADLINE' });
+  const elapsed = Date.now() - startedAt;
+  assert.ok(elapsed < 1_800, `aborted after ${elapsed}ms`);
+  assert.ok(pages < 15, `fetched ${pages} pages`);
+});
+
 test('a pre-cancelled scan never calls its source', async () => {
   const controller = new AbortController();
   controller.abort();

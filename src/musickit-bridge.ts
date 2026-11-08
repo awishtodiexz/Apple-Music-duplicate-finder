@@ -24,10 +24,12 @@ export async function musicKitBridge(request: BridgeRequest): Promise<BridgeRepl
     return numeric as number;
   };
   const checkPage = (): void => {
-    // Trailing slashes are cosmetic; Apple's router may add or drop one at any time.
-    const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+    // Match the playlist ID rather than the exact path: Apple adds and drops
+    // cosmetic segments (storefront, name, trailing slashes) around it.
+    const segments = window.location.pathname.split('/').filter(Boolean);
     if (window.location.origin !== 'https://music.apple.com' ||
-      pathname !== request.playlist.pathname) fail('PAGE_CHANGED');
+      !segments.some(segment => /^playlists?$/i.test(segment)) ||
+      !segments.includes(request.playlist.id)) fail('PAGE_CHANGED');
   };
   const statusCode = (value: unknown): BridgeErrorCode => {
     const e = obj(value) ?? (Array.isArray(value) ? obj(value[0]) : null);

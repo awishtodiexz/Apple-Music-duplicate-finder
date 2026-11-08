@@ -21,8 +21,6 @@ export interface PlaylistRef {
   id: string;
   kind: 'library' | 'catalog';
   storefront: string | null;
-  /** Always trailing-slash free so it compares equal to the live location. */
-  pathname: string;
 }
 
 export interface Track {

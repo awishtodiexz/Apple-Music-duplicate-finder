@@ -14,7 +14,7 @@ export class ScanError extends Error {
 
 const messages: Record<ErrorCode, string> = {
   CANCELLED: 'Scan cancelled. No partial results were accepted. You can start a new scan.',
-  DEADLINE: 'The scan exceeded the ten-minute time limit. No partial results were accepted. Try again with a smaller playlist or a faster connection.',
+  DEADLINE: 'The scan did not finish within the ten-minute time limit. No partial results were accepted. Try again with a smaller playlist or a faster connection.',
   LIMIT: 'This playlist exceeded a scan resource limit (50,000 entries, 2,000 pages, or 16 million metadata characters). No partial results were accepted. Scan a smaller playlist.',
   NOT_PLAYLIST: 'Open a playlist on music.apple.com, then open this extension again.',
   PAGE_CHANGED: 'The open playlist or tab changed. Reopen this extension on the playlist you want to scan.',

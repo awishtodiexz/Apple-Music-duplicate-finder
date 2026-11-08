@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { musicKitBridge } from '../src/musickit-bridge';
 import { bridgeErrorCodes } from '../src/types';
 
-const playlist = { id: 'p.x', kind: 'library' as const, storefront: 'us', pathname: '/us/library/playlist/p.x' };
+const playlist = { id: 'p.x', kind: 'library' as const, storefront: 'us' };
 
 /**
  * chrome.scripting ships only Function.prototype.toString(), so any module-level
@@ -13,7 +13,7 @@ const playlist = { id: 'p.x', kind: 'library' as const, storefront: 'us', pathna
  */
 test('the serialized bridge runs without its module scope', async () => {
   const window = {
-    location: { origin: 'https://music.apple.com', pathname: playlist.pathname },
+    location: { origin: 'https://music.apple.com', pathname: '/us/library/playlist/p.x' },
     MusicKit: {
       getInstance: () => ({
         isAuthorized: true, storefrontId: 'us',
