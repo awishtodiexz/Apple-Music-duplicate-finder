@@ -1,0 +1,29 @@
+import { build } from 'esbuild';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+
+await rm('dist', { recursive: true, force: true });
+await mkdir('dist', { recursive: true });
+await cp('public', 'dist', { recursive: true });
+
+// The manifest version is derived from package.json so a release only has one
+// place to bump; validate-build still asserts the packaged values agree.
+const pkg = JSON.parse(await readFile('package.json', 'utf8'));
+const manifestPath = 'dist/manifest.json';
+const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+if (manifest.version !== pkg.version) {
+  manifest.version = pkg.version;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+await build({
+  entryPoints: ['src/popup.ts'],
+  outfile: 'dist/popup.js',
+  bundle: true,
+  format: 'esm',
+  target: 'chrome111',
+  // Keep the injected function self-contained; no runtime helpers or remote code.
+  // Minified so the payload re-injected for every page stays small.
+  minify: true,
+  legalComments: 'none',
+});
+console.log('Built unpacked extension in dist/');

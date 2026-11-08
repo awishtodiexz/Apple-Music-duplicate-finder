@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a focused improvement to the extension
+title: "Feature: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: "This project is intentionally small, read-only, and local-only. Requests that add playlist writes, credentials, broad permissions, a backend, analytics, or a side panel are out of scope."
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Keep it focused and explain why it belongs in the toolbar popup.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: This can be implemented without new browser permissions or playlist writes.
+          required: true
