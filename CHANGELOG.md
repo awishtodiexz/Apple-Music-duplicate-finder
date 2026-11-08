@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.2.5](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.5) (2026-11-08)
+
+Feature release since v1.2.0: a toolbar badge and per-song copy, a pop-out window, stale-scan detection, and reliability, accessibility and performance work. Permissions are unchanged.
+
 ### Added
 
 - Show the number of repeated songs on the toolbar badge after a scan; **Clear results** removes it.

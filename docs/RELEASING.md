@@ -15,17 +15,17 @@ Releases are prepared from reviewed source, merged through a pull request, and p
 
 1. Fetch after merging and confirm the final `origin/main` commit. Build from that exact commit with a clean worktree. If main advanced with unrelated work, review and validate the actual release commit before proceeding.
 2. Run `npm ci`, `npm run check`, and `npm run audit` on the merged source. The package test compares every ZIP entry with the build/source, verifies its SHA-256 sidecar, rejects tampering, and checks repeated packaging for identical bytes.
-3. For v1.2.0 the only release attachments are:
+3. For v1.2.5 the only release attachments are:
 
-   - `apple-music-duplicate-finder-v1.2.0.zip`
-   - `apple-music-duplicate-finder-v1.2.0.zip.sha256`
+   - `apple-music-duplicate-finder-v1.2.5.zip`
+   - `apple-music-duplicate-finder-v1.2.5.zip.sha256`
 
-4. The ZIP contains `manifest.json`, `popup.html`, `popup.css`, `popup.js`, four icons, `LICENSE`, and `INSTALL.txt`. It must not contain tests, screenshots, profiles, caches, development dependencies, or credentials. The generated manifest must report `1.2.0`, retain only `activeTab` and `scripting`, and use `action.default_popup` without a side panel.
+4. The ZIP contains `manifest.json`, `popup.html`, `popup.css`, `popup.js`, four icons, `LICENSE`, and `INSTALL.txt`. It must not contain tests, screenshots, profiles, caches, development dependencies, or credentials. The generated manifest must report `1.2.5`, retain only `activeTab` and `scripting`, and use `action.default_popup` without a side panel.
 
 ## Tag and publish
 
-1. Recheck that neither the `v1.2.0` tag nor release exists. Create an annotated tag at the verified merged commit and push that tag normally.
-2. Create a draft release titled **Apple Music Duplicate Finder v1.2.0**, using `docs/releases/v1.2.0.md`. When copying notes to GitHub, use the public repository URL for relative documentation links so they resolve from the release page.
+1. Recheck that neither the `v1.2.5` tag nor release exists. Create an annotated tag at the verified merged commit and push that tag normally.
+2. Create a draft release titled **Apple Music Duplicate Finder v1.2.5**, using `docs/releases/v1.2.5.md`. When copying notes to GitHub, use the public repository URL for relative documentation links so they resolve from the release page.
 3. Upload both verified files while the release is a draft. Confirm their names, sizes, and contents. Publish the release as the latest stable release, not a prerelease. Do not publish to an extension marketplace.
 4. Download both public attachments into a separate directory, verify their checksum and byte equality with the tested package, and confirm the tag resolves to the final merged commit. Verify the README, changelog, release notes, required checks, and `main` synchronization. Never silently overwrite an existing release to fix a failed verification.
 
@@ -38,20 +38,20 @@ Download the ZIP and its `.sha256` file into the same directory.
 Linux:
 
 ```sh
-sha256sum --check apple-music-duplicate-finder-v1.2.0.zip.sha256
+sha256sum --check apple-music-duplicate-finder-v1.2.5.zip.sha256
 ```
 
 macOS:
 
 ```sh
-shasum -a 256 --check apple-music-duplicate-finder-v1.2.0.zip.sha256
+shasum -a 256 --check apple-music-duplicate-finder-v1.2.5.zip.sha256
 ```
 
 PowerShell:
 
 ```powershell
-$expected = (Get-Content -LiteralPath './apple-music-duplicate-finder-v1.2.0.zip.sha256').Split(' ')[0]
-$actual = (Get-FileHash -LiteralPath './apple-music-duplicate-finder-v1.2.0.zip' -Algorithm SHA256).Hash
+$expected = (Get-Content -LiteralPath './apple-music-duplicate-finder-v1.2.5.zip.sha256').Split(' ')[0]
+$actual = (Get-FileHash -LiteralPath './apple-music-duplicate-finder-v1.2.5.zip' -Algorithm SHA256).Hash
 if ($actual -ine $expected) { throw 'SHA-256 mismatch' }
 Write-Output 'SHA-256 verified'
 ```
