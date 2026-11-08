@@ -2,6 +2,8 @@
 
 Thanks for helping improve Apple Music Duplicate Finder.
 
+Participation in this project is covered by the [Code of Conduct](../CODE_OF_CONDUCT.md). Report unacceptable behavior privately to the maintainer.
+
 ## Before you begin
 
 Check existing issues before opening a duplicate report. For new functionality, open an issue so the project can stay small, reliable, and easy to maintain.

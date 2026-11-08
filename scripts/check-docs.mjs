@@ -12,9 +12,9 @@ assert.equal(lock.version, version, 'package-lock.json version must match packag
 assert.equal(lock.packages[''].version, version, 'package-lock.json package entry version must match package.json');
 
 const readme = await read('README.md');
-assert.match(readme, new RegExp(`Download v${version.replace(/\./g, '\\.')}`), 'README must advertise the current download');
-assert.equal((readme.match(new RegExp(`/releases/download/v${version.replace(/\./g, '\\.')}/`, 'g')) || []).length >= 2, true,
-  'README download links must point at the current release');
+assert.ok(readme.includes(`Download v${version}`), 'README must advertise the current download');
+const downloadLinks = readme.split(`/releases/download/v${version}/`).length - 1;
+assert.ok(downloadLinks >= 2, 'README download links must point at the current release');
 assert.doesNotMatch(readme, /five-minute/i, 'README still contains the old five-minute deadline');
 assert.match(readme, /ten-minute/i, 'README must state the ten-minute deadline');
 
