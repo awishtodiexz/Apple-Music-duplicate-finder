@@ -1,5 +1,5 @@
 import { isThemePreference, type ThemePreference } from './theme';
-import type { DuplicateGroup } from './types';
+import type { DuplicateGroup, PlaylistInfo } from './types';
 
 const cacheKey = 'amdf:last-scan:v1';
 const themeKey = 'amdf:theme:v1';
@@ -18,6 +18,18 @@ export interface CachedScan {
   countVerified: boolean;
   modificationChecked: boolean;
   notes: string;
+  /** Metadata markers captured at scan time; absent in caches written before v1.2.1. */
+  modified?: string | null;
+  revision?: string | null;
+}
+
+export type CacheFreshness = 'current' | 'changed' | 'unknown';
+
+/** A scan is stale only when both sides carry the same marker and it differs. */
+export function cacheFreshness(scan: CachedScan, info: PlaylistInfo): CacheFreshness {
+  if (scan.modified && info.modified) return scan.modified === info.modified ? 'current' : 'changed';
+  if (scan.revision && info.revision) return scan.revision === info.revision ? 'current' : 'changed';
+  return 'unknown';
 }
 
 function storage(): Storage | null {
@@ -42,6 +54,10 @@ function isGroup(value: unknown): value is DuplicateGroup {
     group.extraCopies === group.copies - 1;
 }
 
+function optionalText(value: unknown): boolean {
+  return value === undefined || value === null || (typeof value === 'string' && value.length <= 2000);
+}
+
 function isCachedScan(value: unknown): value is CachedScan {
   if (!value || typeof value !== 'object') return false;
   const scan = value as Partial<CachedScan>;
@@ -50,7 +66,7 @@ function isCachedScan(value: unknown): value is CachedScan {
     Array.isArray(scan.groups) && scan.groups.every(isGroup) &&
     isCount(scan.unidentified) && isCount(scan.totalTracks) &&
     typeof scan.countVerified === 'boolean' && typeof scan.modificationChecked === 'boolean' &&
-    typeof scan.notes === 'string';
+    typeof scan.notes === 'string' && optionalText(scan.modified) && optionalText(scan.revision);
 }
 
 /** The last completed scan is cached locally so closing the popup does not lose it. */

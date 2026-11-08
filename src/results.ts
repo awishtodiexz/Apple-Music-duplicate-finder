@@ -19,10 +19,11 @@ export function summarize(scanned: number, groups: readonly DuplicateGroup[], un
 }
 
 export function filterGroups(groups: readonly DuplicateGroup[], query: string): DuplicateGroup[] {
-  const needle = query.trim().toLocaleLowerCase();
+  // Plain toLowerCase keeps matching stable in locales that map I to a dotless ı.
+  const needle = query.trim().toLowerCase();
   if (!needle) return [...groups];
   return groups.filter(group =>
-    group.name.toLocaleLowerCase().includes(needle) || group.artist.toLocaleLowerCase().includes(needle));
+    group.name.toLowerCase().includes(needle) || group.artist.toLowerCase().includes(needle));
 }
 
 export function filterByCopies(groups: readonly DuplicateGroup[], minCopies: number): DuplicateGroup[] {

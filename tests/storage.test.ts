@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from '../src/storage';
+import { cacheFreshness, clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from '../src/storage';
 import type { DuplicateGroup } from '../src/types';
 
 const values = new Map<string, string>();
@@ -61,6 +61,25 @@ test('clearing removes the cached scan', () => {
   assert.equal(saveCachedScan(scan), true);
   clearCachedScan();
   assert.equal(loadCachedScan('p.fixture'), null);
+});
+
+test('cache freshness compares modification and revision markers', () => {
+  const info = { name: 'P', total: 1, modified: null, revision: null };
+  assert.equal(cacheFreshness({ ...scan, modified: 'a' }, { ...info, modified: 'a' }), 'current');
+  assert.equal(cacheFreshness({ ...scan, modified: 'a' }, { ...info, modified: 'b' }), 'changed');
+  assert.equal(cacheFreshness({ ...scan, modified: 'a' }, info), 'unknown');
+  assert.equal(cacheFreshness(scan, { ...info, modified: 'x' }), 'unknown');
+  assert.equal(cacheFreshness({ ...scan, modified: null, revision: 'r1' }, { ...info, revision: 'r1' }), 'current');
+  assert.equal(cacheFreshness({ ...scan, modified: null, revision: 'r1' }, { ...info, revision: 'r2' }), 'changed');
+  assert.equal(cacheFreshness({ ...scan, modified: null, revision: 'r1' }, info), 'unknown');
+});
+
+test('metadata markers survive a cache round-trip', () => {
+  clearCachedScan();
+  assert.equal(saveCachedScan({ ...scan, modified: 'm', revision: 'r' }), true);
+  const loaded = loadCachedScan('p.fixture');
+  assert.equal(loaded?.modified, 'm');
+  assert.equal(loaded?.revision, 'r');
 });
 
 test('the theme preference defaults to auto and survives a round-trip', () => {

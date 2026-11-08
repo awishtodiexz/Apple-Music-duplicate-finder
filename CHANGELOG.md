@@ -7,9 +7,14 @@
 - Show the number of repeated songs on the toolbar badge after a scan; **Clear results** removes it.
 - Copy a single song's positions from its result row.
 - Filter results by minimum copies (2+, 3+, 4+ or 5+).
+- **Open in a window** keeps the popup, and any running scan, alive when focus moves elsewhere.
+- Cached results now report when the playlist changed since the scan.
 
 ### Changed
 
+- The empty results state offers **Clear search and filters**, `/` focuses search and Escape clears it, and clearing results returns focus to the scan button.
+- Search matching is locale-independent, so Turkish (and similar) locales no longer break `I`/`i` matching.
+- CSV downloads start with a UTF-8 BOM so Excel reads non-ASCII names correctly.
 - The scan button reads **Scan again** once a scan has completed, and the completion time is shown with the result.
 - The first scan after opening the popup reuses the connection metadata, removing one Apple Music round trip.
 - The local cache holds a full 50,000-track result set (raised from 2 MB to 4.5 MB).

@@ -44,4 +44,4 @@ body:
     attributes:
       label: Popup diagnostics (optional)
       description: The error code and version shown at the bottom of the popup, if any. Do not include playlist contents, tokens, or account details.
-      placeholder: Error code: NETWORK Â· v1.2.0
+      placeholder: Error code: NETWORK · v1.2.0

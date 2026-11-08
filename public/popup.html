@@ -55,7 +55,7 @@
           </div>
         </div>
         <p id="results-feedback" role="status" aria-live="polite"></p>
-        <p id="results-empty" hidden>No matching songs. Try a different search or filter.</p>
+        <p id="results-empty" hidden>No matching songs. <button id="reset-filters" class="link-button" type="button">Clear search and filters</button></p>
         <div id="results-scroll" tabindex="0" role="region" aria-label="Duplicate songs and playlist positions">
           <p id="scan-notes" hidden></p>
           <ul id="duplicate-list"></ul>
@@ -63,7 +63,10 @@
         <button id="show-more" class="secondary" type="button" hidden>Show more duplicates</button>
       </section>
       <button id="clear-results" class="secondary" type="button" aria-label="Clear results" hidden>Clear results</button>
-      <footer>Only looks. Never changes your music. <span id="version" class="version"></span></footer>
+      <footer>Only looks. Never changes your music. <span id="version" class="version"></span>
+        <span aria-hidden="true">·</span>
+        <button id="pop-out" class="link-button" type="button" hidden>Open in a window</button>
+      </footer>
     </main>
   </body>
 </html>

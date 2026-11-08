@@ -17,7 +17,7 @@ window.MusicKit = { getInstance() {
       const length = scenario === 'empty' ? 0 : scenario === 'huge' ? 50001 : scenario === 'many' ? 2400 : scenario === 'oneGroup' ? 6000 : scenario === 'fiftyOne' ? 102 : 245;
       if (!path.includes('/tracks?')) return { data: [{ id: playlistId, type: 'library-playlists',
         attributes: { name: scenario === 'coverage' ? 'Very long playlist name '.repeat(40) : '<img src=x onerror=alert(1)> My playlist', trackCount: scenario === 'coverage' ? undefined : scenario === 'incomplete' ? 250 : length,
-          lastModifiedDate: scenario === 'noMarker' ? undefined : '2026-10-23T00:00:00Z' } }] };
+          lastModifiedDate: scenario === 'noMarker' ? undefined : scenario === 'edited' ? '2026-10-24T00:00:00Z' : '2026-10-23T00:00:00Z' } }] };
       if (scenarioAtStart === 'lateFailure') { window.lateFailures = (window.lateFailures || 0) + 1; throw new TypeError('Late request failed'); }
       if (scenario === 'huge') return { data: [], meta: { total: 50001 } };
       if (scenario === 'rate') throw { status: 429 };

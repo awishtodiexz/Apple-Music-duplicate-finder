@@ -15,7 +15,7 @@
   color: var(--ink);
 }
 * { box-sizing: border-box; }
-body { width: 380px; max-width: 100vw; min-width: 300px; margin: 0; }
+body { width: 380px; max-width: 100vw; min-width: 300px; margin: 0 auto; }
 /* Use document scrolling: popup viewport units can feed back into Chrome autosizing. */
 main { padding: 20px; }
 main > * + * { margin-top: 14px; }
@@ -34,6 +34,8 @@ button:hover:enabled { background: var(--action-hover); }
 button:disabled { background: var(--soft); color: var(--muted); cursor: default; }
 .theme-toggle { width: auto; min-height: 26px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
 .theme-toggle:hover:enabled { background: var(--soft); color: var(--ink); }
+.link-button { width: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--accent); font: inherit; font-size: 11px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.link-button:hover:enabled { background: transparent; color: var(--ink); }
 #status { padding: 0 1px; }
 #status h2 { font-size: 14px; line-height: 1.4; }
 #status-detail { font-size: 12px; line-height: 1.6; color: var(--muted); margin: 4px 0 0; white-space: pre-line; }

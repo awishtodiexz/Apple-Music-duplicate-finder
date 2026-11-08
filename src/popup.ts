@@ -4,7 +4,7 @@ import { errorCode, errorMessage, ScanError } from './errors';
 import { readPlaylist, type PlaylistSource } from './playlist-reader';
 import { detectPlaylist } from './playlist-url';
 import { csvFilename, formatGroupText, formatResultsText, summarize, summaryLine, toCsv, visibleGroups, type SortMode } from './results';
-import { clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from './storage';
+import { cacheFreshness, clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from './storage';
 import { nextTheme, themeLabel, type ThemePreference } from './theme';
 import type { DuplicateGroup, PlaylistInfo, PlaylistRef } from './types';
 
@@ -31,6 +31,8 @@ const resultsMin = element<HTMLSelectElement>('results-min');
 const copyResults = element<HTMLButtonElement>('copy-results');
 const downloadResults = element<HTMLButtonElement>('download-results');
 const clearResults = element<HTMLButtonElement>('clear-results');
+const resetFilters = element<HTMLButtonElement>('reset-filters');
+const popOut = element<HTMLButtonElement>('pop-out');
 const resultsFeedback = element('results-feedback');
 const resultsEmpty = element('results-empty');
 const version = element('version');
@@ -43,6 +45,7 @@ let source: PlaylistSource | null = null;
 // Fetched while connecting; reused once so the first scan skips a round trip.
 let pendingInfo: PlaylistInfo | null = null;
 let currentPlaylist: PlaylistRef | null = null;
+let connectedTabId: number | null = null;
 let currentPlaylistName = '';
 let busy = false;
 let scanFailed = false;
@@ -92,6 +95,31 @@ function setBadge(count: number | null): void {
 function updateScanLabel(): void {
   scan.textContent = source ? (scanFailed ? 'Retry scan' : hasScanResult ? 'Scan again' : 'Scan for Duplicates') : 'Retry connection';
 }
+
+/** The popped-out window carries the tab it was opened from; the toolbar popup does not. */
+function pinnedTabId(): number | null {
+  const value = new URLSearchParams(location.search).get('tab');
+  if (!value || !/^\d{1,16}$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function updatePopOut(): void {
+  // Hidden while a scan runs: opening the window closes this popup, which would
+  // abort that scan before the new window could adopt the results.
+  popOut.hidden = !(connectedTabId !== null && !busy && pinnedTabId() === null &&
+    typeof chrome.windows?.create === 'function');
+}
+
+popOut.addEventListener('click', () => {
+  if (connectedTabId === null || busy) return;
+  try {
+    const url = `${chrome.runtime.getURL('popup.html')}?tab=${connectedTabId}`;
+    void Promise.resolve(chrome.windows.create({ url, type: 'popup', width: 400, height: 760 })).catch(() => {});
+  } catch {
+    // The toolbar popup still works if a window cannot be created.
+  }
+});
 
 function setStatus(title: string, detail: string, error = false, code?: string): void {
   // Assigning identical text still replaces the node and re-triggers a live
@@ -226,11 +254,11 @@ function formatDate(timestamp: number): string {
   });
 }
 
-function cacheCurrent(playlist: PlaylistRef, infoName: string, countVerified: boolean, modificationChecked: boolean): boolean {
+function cacheCurrent(playlist: PlaylistRef, info: PlaylistInfo, countVerified: boolean, modificationChecked: boolean): boolean {
   const cached: CachedScan = {
     version: 1,
     playlistId: playlist.id,
-    playlistName: infoName,
+    playlistName: info.name,
     scannedAt: Date.now(),
     groups,
     unidentified,
@@ -238,6 +266,8 @@ function cacheCurrent(playlist: PlaylistRef, infoName: string, countVerified: bo
     countVerified,
     modificationChecked,
     notes: scanNotes,
+    modified: info.modified,
+    revision: info.revision ?? null,
   };
   const saved = saveCachedScan(cached);
   if (!saved) {
@@ -267,7 +297,8 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 function downloadCsv(): void {
-  const blob = new Blob([toCsv(visible)], { type: 'text/csv;charset=utf-8' });
+  // The BOM lets Excel detect UTF-8 instead of mangling non-ASCII names.
+  const blob = new Blob(['\uFEFF' + toCsv(visible)], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -294,10 +325,20 @@ async function initialize(): Promise<void> {
   playlistName.textContent = 'Detecting playlist…';
   playlistName.title = '';
   setStatus('Connecting to Apple Music…', 'Checking the current playlist.');
+  connectedTabId = null;
+  updatePopOut();
   let restored = false;
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const pinned = pinnedTabId();
+    let tab: chrome.tabs.Tab | undefined;
+    if (pinned !== null) {
+      try { tab = await chrome.tabs.get(pinned); } catch { throw new ScanError('PAGE_CHANGED'); }
+    } else {
+      [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    }
     if (tab?.id === undefined) throw new Error('Tab unavailable');
+    connectedTabId = tab.id;
+    updatePopOut();
     const playlist = detectPlaylist(tab.url ?? '');
     const candidate = createBrowserSource(tab.id, playlist);
     // A cached scan does not need the player, so paint it before the round trip:
@@ -321,9 +362,14 @@ async function initialize(): Promise<void> {
       currentPlaylistName = info.name;
       playlistName.textContent = info.name;
       playlistName.title = info.name;
-      setStatus(cached ? 'Showing last scan' : 'Ready to scan',
-        cached ? `${cachedStatus(cached)} Rescan to refresh.` :
-          'Find songs listed more than once. Keep this popup open while scanning.');
+      if (cached) {
+        const fresh = cacheFreshness(cached, info);
+        setStatus('Showing last scan', fresh === 'changed' ?
+          `${cachedStatus(cached)} The playlist changed since this scan. Scan again to refresh.` :
+          `${cachedStatus(cached)} Rescan to refresh.`);
+      } else {
+        setStatus('Ready to scan', 'Find songs listed more than once. Keep this popup open while scanning.');
+      }
     } catch (error) {
       // Keep the cached results and explain why they cannot be refreshed.
       if (!cached) throw error;
@@ -337,6 +383,7 @@ async function initialize(): Promise<void> {
     busy = false;
     scan.disabled = false;
     updateScanLabel();
+    updatePopOut();
   }
 }
 
@@ -362,6 +409,37 @@ resultsMin.addEventListener('change', () => {
   resultsFeedback.textContent = visible.length ? '' : 'No matching songs.';
 });
 
+resetFilters.addEventListener('click', () => {
+  resultsSearch.value = '';
+  resultsMin.value = '2';
+  renderResults();
+  resultsSearch.focus();
+  resultsFeedback.textContent = 'Search and filters cleared.';
+});
+
+// "/" is the common search shortcut; Escape clears the query before the popup closes.
+document.addEventListener('keydown', event => {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+  const target = event.target as HTMLElement | null;
+  const typing = !!target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' ||
+    target.tagName === 'TEXTAREA' || target.isContentEditable);
+  if (event.key === '/' && !typing && !results.hidden) {
+    event.preventDefault();
+    resultsSearch.focus();
+    resultsSearch.select();
+    return;
+  }
+  if (event.key === 'Escape' && target === resultsSearch) {
+    if (resultsSearch.value) {
+      resultsSearch.value = '';
+      renderResults();
+      resultsFeedback.textContent = '';
+    } else {
+      resultsSearch.blur();
+    }
+  }
+});
+
 copyResults.addEventListener('click', async () => {
   const text = formatResultsText(currentPlaylistName || 'Current playlist', visible, summarize(totalTracks, visible, unidentified), scanNotes);
   if (await copyText(text)) {
@@ -383,6 +461,8 @@ clearResults.addEventListener('click', () => {
   setBadge(null);
   updateScanLabel();
   setStatus('Results cleared', 'Run a scan to find repeated songs again.');
+  // The button that had focus is now hidden; keep keyboard users in the popup.
+  scan.focus();
 });
 
 scan.addEventListener('click', async () => {
@@ -392,6 +472,7 @@ scan.addEventListener('click', async () => {
   scanFailed = false;
   const baselineInfo = pendingInfo ?? undefined;
   pendingInfo = null;
+  updatePopOut();
   const controller = new AbortController();
   scanController = controller;
   cancel.hidden = false;
@@ -442,7 +523,7 @@ scan.addEventListener('click', async () => {
     hasScanResult = true;
     setBadge(groups.length);
     renderResults();
-    cacheCurrent(currentPlaylist, result.info.name, result.countVerified, result.modificationChecked);
+    cacheCurrent(currentPlaylist, result.info, result.countVerified, result.modificationChecked);
   } catch (error) {
     clearGroups();
     const cancelled = error instanceof ScanError && error.code === 'CANCELLED';
@@ -459,6 +540,7 @@ scan.addEventListener('click', async () => {
     cancel.hidden = true;
     scan.disabled = false;
     updateScanLabel();
+    updatePopOut();
     progress.hidden = true;
     status.setAttribute('aria-busy', 'false');
   }

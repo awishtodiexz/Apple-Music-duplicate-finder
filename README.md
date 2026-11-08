@@ -8,8 +8,8 @@
 
 <p align="center">
   <a href="https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.2.0/apple-music-duplicate-finder-v1.2.0.zip"><strong>Download v1.2.0</strong></a>
-  Â· <a href="#installation">Installation</a>
-  Â· <a href="#privacy">Privacy</a>
+  · <a href="#installation">Installation</a>
+  · <a href="#privacy">Privacy</a>
 </p>
 
 <p align="center">
@@ -30,7 +30,8 @@ A free, open-source Chrome and Edge extension that shows which songs appear more
 - Read-only; it never edits, reorders, or deletes music.
 - Lets you cancel scans and enforces ten-minute, 50,000-entry, 2,000-page, and 16-million-character limits.
 - Search and sort repeated songs, filter by minimum copies, copy one song or the whole visible list, or download it as CSV.
-- Restores the last completed scan when the popup is reopened; **Clear** removes it.
+- Restores the last completed scan when the popup is reopened; **Clear** removes it, and a changed playlist is called out as stale.
+- **Open in a window** keeps the popup alive in its own window, so a scan is not lost when you click elsewhere.
 - Renders results in batches with keyboard focus and light/dark themes. The header theme control switches between Auto (follows your system), Light and Dark, and remembers the choice. The toolbar badge shows how many repeated songs the last scan found. Very large duplicate groups collapse long position lists until you expand them.
 
 ## Installation
@@ -55,15 +56,15 @@ No development tools are needed. On the [release page](../../releases/latest), c
 
 Use **Cancel scan** to stop and start again. Cancelled, timed-out, failed, or resource-limited scans discard their results. Scans are limited to ten minutes, 50,000 entries, 2,000 pages, and 16 million metadata characters. The deadline is wall-clock, and 50,000 entries means 500 sequential 100-entry requests, so a slow connection reaches the ten-minute limit before the entry limit. A scan that is clearly too slow to finish stops early with the same deadline message instead of holding the popup for the full ten minutes.
 
-**â€œThis song appears twiceâ€** at **positions 12 and 84** means it is listed at number 12 and again at number 84. You can review those entries in Apple Music and remove unwanted ones yourself. Rescan after changing the playlist.
+**“This song appears twice”** at **positions 12 and 84** means it is listed at number 12 and again at number 84. You can review those entries in Apple Music and remove unwanted ones yourself. Rescan after changing the playlist.
 
 ## Troubleshooting
 
-- **â€œOpen a playlistâ€** â€” navigate to a playlist on `music.apple.com`, then reopen the extension.
-- **â€œMusicKit unavailableâ€** â€” let the player finish loading, reload the page, and retry.
-- **â€œSign inâ€** â€” your Apple Music session may have expired; sign in again in the tab.
-- **The popup closed** â€” an in-progress scan is discarded, but the last completed scan is restored next time. Keep the popup focused until scanning finishes.
-- **â€œNo total suppliedâ€** â€” Apple did not provide an independent count; the popup explains that all pages were read but the count is unverified.
+- **“Open a playlist”** — navigate to a playlist on `music.apple.com`, then reopen the extension.
+- **“MusicKit unavailable”** — let the player finish loading, reload the page, and retry.
+- **“Sign in”** — your Apple Music session may have expired; sign in again in the tab.
+- **The popup closed** — an in-progress scan is discarded, but the last completed scan is restored next time. Keep the popup focused until scanning finishes.
+- **“No total supplied”** — Apple did not provide an independent count; the popup explains that all pages were read but the count is unverified.
 
 ## What it matches
 
@@ -104,6 +105,6 @@ Load `dist/` as an unpacked extension. The checks generate `artifacts/apple-musi
 
 [Report a bug](../../issues) with your browser version and steps to reproduce it. Redact account details and private playlist information. For vulnerabilities, follow the [security policy](.github/SECURITY.md).
 
-[Contributing](.github/CONTRIBUTING.md) Â· [Changelog](CHANGELOG.md) Â· [MIT license](LICENSE)
+[Contributing](.github/CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE)
 
 <sub>Independent project. Not affiliated with or endorsed by Apple Inc. Apple Music is a trademark of Apple Inc.</sub>

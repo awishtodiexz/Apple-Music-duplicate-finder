@@ -174,6 +174,27 @@ try {
   assert.equal(await blocked.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 0);
   await blocked.close();
   console.log('PASS: cross-origin navigation revokes activeTab; blocked injection shows an error without results');
+
+  // Pop-out: the real toolbar popup opens a window pinned to the playlist tab.
+  activePopup = undefined;
+  await apple.goto('https://music.apple.com/us/library/playlist/p.fixture');
+  const popper = await open('duplicates');
+  assert.equal(await popper.evaluate(() => document.querySelector('#pop-out').hidden), false);
+  await popper.evaluate(() => document.querySelector('#pop-out').click());
+  const popTarget = await until(async () => (await cdp.send('Target.getTargets')).targetInfos
+    .find(target => target.url.includes('/popup.html?tab=')), 'pop-out window target');
+  const popped = await attach(popTarget.targetId);
+  await until(async () => {
+    try {
+      return (await popped.evaluate(() => document.querySelector('#playlist-name').textContent)).includes('My playlist');
+    } catch {
+      return false;
+    }
+  }, 'pop-out window connection');
+  assert.equal(await popped.evaluate(() => document.querySelector('#pop-out').hidden), true);
+  await popped.close();
+  console.log('PASS: pop-out window opens from the real toolbar popup and connects to the same tab');
+
   console.log('UNVERIFIED: live Apple Music, account/region variants, branded Chrome/Edge toolbar behavior');
 } finally {
   await context?.close();

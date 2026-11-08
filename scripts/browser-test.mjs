@@ -51,12 +51,16 @@ try {
   await popup.addInitScript(version => {
     if (location.search.includes('reset')) localStorage.clear();
     window.chrome = {
-      runtime: { getManifest: () => ({ version }) },
+      runtime: { getManifest: () => ({ version }), getURL: path => 'https://duplicate-finder.test/' + path },
       action: {
         setBadgeText: async ({ text }) => { window.__badge = text; },
         setBadgeBackgroundColor: async () => {},
       },
-      tabs: { query: async () => [{ id: 1, url: await window.readPlayerUrl() }] },
+      windows: { create: async options => { window.__createdWindow = options; return {}; } },
+      tabs: {
+        query: async () => [{ id: 1, url: await window.readPlayerUrl() }],
+        get: async id => ({ id, url: await window.readPlayerUrl() }),
+      },
       scripting: { executeScript: async ({ target, world, func, args }) => {
         if (world !== 'MAIN' || target.tabId !== 1 || target.frameIds[0] !== 0) throw new Error('Unexpected injection');
         return [{ frameId: 0, result: await window.executeInPlayer({ functionSource: func.toString(), request: args[0] }) }];
@@ -152,7 +156,21 @@ try {
     assert.ok(downloadPath);
     const csv = await readFile(downloadPath, 'utf8');
     assert.match(csv, /Song,Artist,Copies,Extra copies,Positions\r\nNumb,Linkin Park,3,2,1 101 245/);
+    assert.equal(csv.charCodeAt(0), 0xFEFF); // Excel-friendly UTF-8 BOM
     assert.match(await popup.locator('#results-feedback').textContent(), /Downloaded 1 song as CSV/);
+
+    // "/" focuses search, Escape clears it, and the empty state can reset filters.
+    await popup.keyboard.press('/');
+    assert.equal(await popup.evaluate(() => document.activeElement?.id), 'results-search');
+    await popup.keyboard.type('numb');
+    assert.equal(await popup.locator('#duplicate-list li').count(), 1);
+    await popup.keyboard.press('Escape');
+    assert.equal(await popup.locator('#results-search').inputValue(), '');
+    await popup.locator('#results-search').fill('zzz');
+    assert.equal(await popup.locator('#duplicate-list li').count(), 0);
+    await popup.getByRole('button', { name: 'Clear search and filters' }).click();
+    assert.equal(await popup.locator('#duplicate-list li').count(), 1);
+    assert.equal(await popup.locator('#results-search').inputValue(), '');
 
     // A completed scan survives closing and reopening the popup.
     await popup.goto(popupUrl);
@@ -160,6 +178,12 @@ try {
     assert.equal(await popup.locator('#duplicate-list li').count(), 1);
     await popup.waitForFunction(() => /Rescan to refresh/.test(document.querySelector('#status-detail').textContent));
     assert.match(await popup.locator('#status-detail').textContent(), /Cached .*Rescan to refresh/);
+
+    // A changed modification marker marks the cached scan as stale.
+    await apple.evaluate(() => { window.scenario = 'edited'; });
+    await popup.goto(popupUrl);
+    await popup.waitForFunction(() => /changed since this scan/.test(document.querySelector('#status-detail').textContent));
+    assert.match(await popup.locator('#status-detail').textContent(), /Cached .*changed since this scan/);
 
     // Cached results stay visible when MusicKit is unavailable.
     await apple.evaluate(() => { window.scenario = 'unavailable'; });
@@ -194,7 +218,7 @@ try {
     assert.equal(await popup.evaluate(() => window.__badge), '');
     assert.equal(await popup.locator('#scan').textContent(), 'Scan for Duplicates');
     assert.equal(await popup.evaluate(() => localStorage.getItem('amdf:last-scan:v1')), null);
-    console.log(`PASS (${apiMode}): copy (all and per song), CSV export, minimum-copies filter, toolbar badge, scan-again label, cached last scan, and explicit clear`);
+    console.log(`PASS (${apiMode}): copy (all and per song), CSV with BOM, minimum-copies filter, keyboard search, filter reset, toolbar badge, scan-again label, stale-cache notice, cached last scan, and explicit clear`);
 
     for (const scenario of ['empty', 'distinct']) {
       await open(scenario);
@@ -439,6 +463,25 @@ try {
   await popup.emulateMedia({ colorScheme: 'light' });
   assert.equal((await themeState()).bg, '#fbfbfd');
   console.log('PASS: theme control defaults to Auto, explicit Light/Dark overrides the system, persists across reloads, and Auto follows the system live');
+
+  // Pop-out window: a fresh page targets the originating tab and hides the button.
+  await apple.evaluate(() => {
+    window.scenario = 'duplicates';
+    history.replaceState({}, '', '/us/library/playlist/p.fixture');
+  });
+  await popup.goto(popupUrl + '?reset=1');
+  await popup.waitForFunction(() => !document.querySelector('#scan').disabled);
+  assert.equal(await popup.locator('#pop-out').isVisible(), true);
+  await popup.locator('#pop-out').click();
+  const created = await popup.evaluate(() => window.__createdWindow);
+  assert.ok(created, 'pop-out should create a window');
+  assert.match(created.url, /popup\.html\?tab=1$/);
+  assert.equal(created.width, 400);
+  await popup.goto(created.url);
+  await popup.waitForFunction(() => document.querySelector('#playlist-name').textContent.includes('My playlist'));
+  assert.equal(await popup.locator('#pop-out').isVisible(), false);
+  assert.equal(await popup.locator('#scan').textContent(), 'Scan for Duplicates');
+  console.log('PASS: pop-out opens the popup in its own window pinned to the originating tab');
 
   assert.deepEqual(pageErrors, []);
   console.log(`PASS: ${scenarioCount} UI fixture scenarios across both API versions; no popup runtime exceptions`);
