@@ -15,7 +15,7 @@
 - The local cache holds a full 50,000-track result set (raised from 2 MB to 4.5 MB).
 - Large position lists render about twenty times faster by reusing one number formatter.
 - Playlist detection now parses route segments and matches the playlist ID, so extra name or view segments, a plural `playlists` path and trailing slashes no longer break detection.
-- A scan that is clearly too slow to finish within the deadline now stops early instead of running the full ten minutes.
+- A scan that is clearly too slow to finish within the deadline now stops early instead of running the full ten minutes, using the fastest recent page so one retry sleep cannot trigger it early.
 
 ### Fixed
 

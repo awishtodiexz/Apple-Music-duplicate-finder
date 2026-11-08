@@ -98,6 +98,28 @@ test('a scan that cannot finish in time stops early instead of burning the deadl
   assert.ok(pages < 15, `fetched ${pages} pages`);
 });
 
+test('a single retry does not abort a scan that can still finish', async () => {
+  const total = 5_000;
+  const all = entries(total);
+  let calls = 0;
+  let retried = false;
+  const source: PlaylistSource = {
+    metadata: async () => ({ ...info, total }),
+    page: async offset => {
+      calls++;
+      if (offset === 100 && !retried) {
+        retried = true;
+        throw new ScanError('RATE_LIMIT', { retryAfterMs: 400 });
+      }
+      await new Promise(resolve => setTimeout(resolve, 20));
+      return { tracks: all.slice(offset, offset + 100), total, nextOffset: null };
+    },
+  };
+  const result = await readPlaylist(source, () => {}, { deadlineMs: 3_000 });
+  assert.equal(result.tracks.length, 5_000);
+  assert.equal(calls, 51);
+});
+
 test('a pre-cancelled scan never calls its source', async () => {
   const controller = new AbortController();
   controller.abort();
