@@ -22,15 +22,16 @@
       </section>
       <button id="scan" type="button" disabled>Scan for Duplicates</button>
       <button id="cancel" class="secondary" type="button" hidden>Cancel scan</button>
-      <section id="status" aria-live="polite" aria-atomic="true">
+      <section id="status">
         <h2 id="status-title">Connecting to Apple Music…</h2>
         <p id="status-detail">Keep this popup open while scanning.</p>
         <p id="status-code" hidden></p>
         <progress id="scan-progress" aria-label="Playlist scan progress" hidden></progress>
       </section>
+      <p id="status-announcer" class="visually-hidden" role="status" aria-live="polite"></p>
       <section id="results" hidden aria-labelledby="results-title">
         <div class="results-head">
-          <h2 id="results-title" aria-live="polite">Repeated songs</h2>
+          <h2 id="results-title">Repeated songs</h2>
           <label class="visually-hidden" for="results-min">Minimum copies</label>
           <select id="results-min">
             <option value="2">2+ copies</option>
@@ -62,6 +63,7 @@
         </div>
         <button id="show-more" class="secondary" type="button" hidden>Show more duplicates</button>
       </section>
+      <p id="results-announcer" class="visually-hidden" role="status" aria-live="polite"></p>
       <button id="clear-results" class="secondary" type="button" aria-label="Clear results" hidden>Clear results</button>
       <footer>Only looks. Never changes your music. <span id="version" class="version"></span>
         <span aria-hidden="true">·</span>

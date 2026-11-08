@@ -49,6 +49,7 @@ test('summary counts groups, extra copies, and unidentified entries', () => {
   assert.deepEqual(summary, { scanned: 10, groups: 3, extraCopies: 4, unidentified: 2 });
   assert.match(summaryLine(summary), /10 songs scanned\n3 songs appear more than once · 4 extra copies/);
   assert.match(summaryLine(summarize(1, [group('One', 'A', [1, 2])], 0)), /1 song appears more than once · 1 extra copy/);
+  assert.match(summaryLine(summarize(245, [], 0)), /245 songs scanned\nNo duplicate songs found\./);
 });
 
 test('copy text includes all positions and scan notes', () => {

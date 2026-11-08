@@ -14,6 +14,9 @@
 
 - The empty results state offers **Clear search and filters**, `/` focuses search and Escape clears it, and clearing results returns focus to the scan button.
 - Search matching is locale-independent, so Turkish (and similar) locales no longer break `I`/`i` matching.
+- Progress and result counts announce through dedicated, throttled live regions instead of re-reading the whole status block on every update.
+- Search, sort and filter controls use a border colour that meets the 3:1 contrast requirement in both themes.
+- Clearing results resets the sort and filter together, and a scan with no duplicates reports "No duplicate songs found."
 - CSV downloads start with a UTF-8 BOM so Excel reads non-ASCII names correctly.
 - The scan button reads **Scan again** once a scan has completed, and the completion time is shown with the result.
 - The first scan after opening the popup reuses the connection metadata, removing one Apple Music round trip.

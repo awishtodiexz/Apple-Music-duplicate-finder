@@ -33,6 +33,8 @@ const downloadResults = element<HTMLButtonElement>('download-results');
 const clearResults = element<HTMLButtonElement>('clear-results');
 const resetFilters = element<HTMLButtonElement>('reset-filters');
 const popOut = element<HTMLButtonElement>('pop-out');
+const statusAnnouncer = element('status-announcer');
+const resultsAnnouncer = element('results-announcer');
 const resultsFeedback = element('results-feedback');
 const resultsEmpty = element('results-empty');
 const version = element('version');
@@ -130,6 +132,19 @@ function setStatus(title: string, detail: string, error = false, code?: string):
   statusCode.textContent = code ? `Error code: ${code}` : '';
   statusCode.hidden = !code;
   lastStatusWrite = Date.now();
+  announceStatus(title, detail, code);
+}
+
+// Progress text changes every page; a live region that repeats it floods a
+// screen reader, so only phase changes and periodic progress reach the announcer.
+const statusAnnounceIntervalMs = 20_000;
+let lastStatusAnnouncement = 0;
+function announceStatus(title: string, detail: string, code?: string): void {
+  const progress = title === 'Scanning playlist…' || title === 'Checking playlist…';
+  if (progress && Date.now() - lastStatusAnnouncement < statusAnnounceIntervalMs) return;
+  lastStatusAnnouncement = Date.now();
+  const text = [title, detail, code ? `Error code ${code}` : ''].filter(Boolean).join('. ');
+  if (statusAnnouncer.textContent !== text) statusAnnouncer.textContent = text;
 }
 
 function clearGroups(): void {
@@ -148,6 +163,7 @@ function clearGroups(): void {
   resultsFeedback.textContent = '';
   resultsSearch.value = '';
   resultsMin.value = '2';
+  resultsSort.value = 'playlist';
   clearResults.hidden = true;
 }
 
@@ -233,6 +249,21 @@ function renderResults(): void {
   displayed = 0;
   list.replaceChildren();
   appendBatch();
+  // Typing should not announce per character; the count is debounced, and a
+  // scan's own status announcement already covers the first render.
+  if (!busy) announceResults();
+}
+
+let resultsAnnounceTimer: ReturnType<typeof setTimeout> | undefined;
+function announceResults(): void {
+  clearTimeout(resultsAnnounceTimer);
+  resultsAnnounceTimer = setTimeout(() => {
+    if (busy) return;
+    const text = visible.length === groups.length ?
+      `${number(visible.length)} ${visible.length === 1 ? 'song' : 'songs'} shown.` :
+      `${number(visible.length)} of ${number(groups.length)} songs match.`;
+    if (resultsAnnouncer.textContent !== text) resultsAnnouncer.textContent = text;
+  }, 500);
 }
 
 function restoreCached(cached: CachedScan): void {
@@ -483,9 +514,6 @@ scan.addEventListener('click', async () => {
   progress.hidden = false;
   progress.removeAttribute('value');
   setStatus('Scanning playlist…', 'Connecting to Apple Music…');
-  // A live region announces every text mutation. Hold announcements while pages
-  // stream in, then release them once the final state has been written.
-  status.setAttribute('aria-busy', 'true');
   try {
     const result = await readPlaylist(source, ({ retrieved, total, elapsedMs, phase }) => {
       if (total !== null && total > 0) {
@@ -542,7 +570,6 @@ scan.addEventListener('click', async () => {
     updateScanLabel();
     updatePopOut();
     progress.hidden = true;
-    status.setAttribute('aria-busy', 'false');
   }
 });
 

@@ -100,6 +100,9 @@ try {
       await popup.waitForFunction(() => !document.querySelector('#scan').disabled);
       assert.equal(await popup.locator('#status-title').textContent(), 'Scan complete');
       assert.match(await popup.locator('#status-detail').textContent(), /245 songs scanned\n1 song appears more than once/);
+      // Progress is visual; only phase changes reach the dedicated announcer.
+      assert.equal(await popup.locator('#status').getAttribute('aria-live'), null);
+      await popup.waitForFunction(() => /Scan complete/.test(document.querySelector('#status-announcer').textContent));
       assert.equal(await popup.locator('#duplicate-list li').count(), 1);
       assert.equal(await popup.locator('.positions').textContent(), 'Playlist positions: 1, 101, 245');
       assert.equal(await popup.locator('.song').textContent(), 'Numb');
@@ -168,6 +171,8 @@ try {
     assert.equal(await popup.locator('#results-search').inputValue(), '');
     await popup.locator('#results-search').fill('zzz');
     assert.equal(await popup.locator('#duplicate-list li').count(), 0);
+    await popup.waitForFunction(() => /0 of 1 songs match/.test(document.querySelector('#results-announcer').textContent));
+    assert.equal(await popup.locator('#results-title').getAttribute('aria-live'), null);
     await popup.getByRole('button', { name: 'Clear search and filters' }).click();
     assert.equal(await popup.locator('#duplicate-list li').count(), 1);
     assert.equal(await popup.locator('#results-search').inputValue(), '');
@@ -212,8 +217,10 @@ try {
     // The cached paint is immediate; wait for the reconnect to finish before clearing.
     await popup.waitForFunction(() => document.querySelector('#scan').textContent === 'Scan again');
 
+    await popup.locator('#results-sort').selectOption('copies');
     await popup.getByRole('button', { name: 'Clear results' }).click();
     assert.equal(await popup.locator('#status-title').textContent(), 'Results cleared');
+    assert.equal(await popup.locator('#results-sort').inputValue(), 'playlist');
     assert.equal(await popup.locator('#duplicate-list li').count(), 0);
     assert.equal(await popup.evaluate(() => window.__badge), '');
     assert.equal(await popup.locator('#scan').textContent(), 'Scan for Duplicates');
@@ -224,6 +231,7 @@ try {
       await open(scenario);
       await scan();
       assert.equal(await popup.locator('#status-title').textContent(), 'No exact duplicates found');
+      assert.match(await popup.locator('#status-detail').textContent(), /No duplicate songs found\./);
       assert.equal(await popup.locator('#results').isVisible(), false);
     }
     console.log(`PASS (${apiMode}): empty and no-duplicates popup states`);

@@ -55,6 +55,7 @@ export function visibleGroups(groups: readonly DuplicateGroup[], query: string, 
 }
 
 export function summaryLine(summary: ResultSummary): string {
+  if (summary.groups === 0) return `${summary.scanned.toLocaleString()} songs scanned\nNo duplicate songs found.`;
   const songs = `${summary.groups.toLocaleString()} ${summary.groups === 1 ? 'song appears' : 'songs appear'} more than once`;
   const extras = `${summary.extraCopies.toLocaleString()} ${summary.extraCopies === 1 ? 'extra copy' : 'extra copies'}`;
   return `${summary.scanned.toLocaleString()} songs scanned\n${songs} · ${extras}`;
