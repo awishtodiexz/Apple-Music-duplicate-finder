@@ -3,7 +3,7 @@ import { findDuplicates } from './duplicates';
 import { errorCode, errorMessage, ScanError } from './errors';
 import { readPlaylist, type PlaylistSource } from './playlist-reader';
 import { detectPlaylist } from './playlist-url';
-import { csvFilename, formatResultsText, summarize, summaryLine, toCsv, visibleGroups, type SortMode } from './results';
+import { csvFilename, formatGroupText, formatResultsText, summarize, summaryLine, toCsv, visibleGroups, type SortMode } from './results';
 import { clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from './storage';
 import { nextTheme, themeLabel, type ThemePreference } from './theme';
 import type { DuplicateGroup, PlaylistRef } from './types';
@@ -27,6 +27,7 @@ const progress = element<HTMLProgressElement>('scan-progress');
 const showMore = element<HTMLButtonElement>('show-more');
 const resultsSearch = element<HTMLInputElement>('results-search');
 const resultsSort = element<HTMLSelectElement>('results-sort');
+const resultsMin = element<HTMLSelectElement>('results-min');
 const copyResults = element<HTMLButtonElement>('copy-results');
 const downloadResults = element<HTMLButtonElement>('download-results');
 const clearResults = element<HTMLButtonElement>('clear-results');
@@ -42,6 +43,7 @@ let currentPlaylist: PlaylistRef | null = null;
 let currentPlaylistName = '';
 let busy = false;
 let scanFailed = false;
+let hasScanResult = false;
 let groups: DuplicateGroup[] = [];
 let visible: DuplicateGroup[] = [];
 let displayed = 0;
@@ -72,6 +74,21 @@ themeToggle.addEventListener('click', () => {
   applyTheme();
 });
 
+/** Badge count survives closing the popup, so it is the glanceable result. */
+function setBadge(count: number | null): void {
+  try {
+    if (!chrome.action) return;
+    void chrome.action.setBadgeBackgroundColor({ color: '#c7284e' });
+    void chrome.action.setBadgeText({ text: count === null ? '' : count > 999 ? '999+' : String(count) });
+  } catch {
+    // Decorative only; never let a badge failure affect a scan.
+  }
+}
+
+function updateScanLabel(): void {
+  scan.textContent = source ? (scanFailed ? 'Retry scan' : hasScanResult ? 'Scan again' : 'Scan for Duplicates') : 'Retry connection';
+}
+
 function setStatus(title: string, detail: string, error = false, code?: string): void {
   // Assigning identical text still replaces the node and re-triggers a live
   // region announcement, so only write what actually changed.
@@ -98,12 +115,13 @@ function clearGroups(): void {
   resultsEmpty.hidden = true;
   resultsFeedback.textContent = '';
   resultsSearch.value = '';
+  resultsMin.value = '2';
   clearResults.hidden = true;
 }
 
 function currentGroups(): DuplicateGroup[] {
   const mode = resultsSort.value as SortMode;
-  return visibleGroups(groups, resultsSearch.value, mode || 'playlist');
+  return visibleGroups(groups, resultsSearch.value, mode || 'playlist', Number(resultsMin.value) || 2);
 }
 
 function appendGroup(group: DuplicateGroup): void {
@@ -139,6 +157,19 @@ function appendGroup(group: DuplicateGroup): void {
     });
     item.append(showAll);
   }
+  const copyGroup = document.createElement('button');
+  copyGroup.type = 'button';
+  copyGroup.className = 'copy-group';
+  copyGroup.textContent = 'Copy';
+  copyGroup.setAttribute('aria-label', `Copy ${group.name} by ${group.artist}`);
+  copyGroup.addEventListener('click', async () => {
+    if (await copyText(formatGroupText(group))) {
+      resultsFeedback.textContent = `Copied ${group.name}.`;
+    } else {
+      resultsFeedback.textContent = 'Copy failed. Use CSV instead.';
+    }
+  });
+  item.append(copyGroup);
   list.append(item);
 }
 
@@ -179,12 +210,16 @@ function restoreCached(cached: CachedScan): void {
   scanNotes = cached.notes;
   notes.textContent = scanNotes;
   notes.hidden = !scanNotes;
+  hasScanResult = true;
+  setBadge(cached.groups.length);
   renderResults();
   clearResults.hidden = false;
 }
 
 function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleString();
+  return new Date(timestamp).toLocaleString([], {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
 }
 
 function cacheCurrent(playlist: PlaylistRef, infoName: string, countVerified: boolean, modificationChecked: boolean): boolean {
@@ -242,6 +277,7 @@ function downloadCsv(): void {
 async function initialize(): Promise<void> {
   busy = true;
   scanFailed = false;
+  hasScanResult = false;
   source = null;
   currentPlaylist = null;
   scan.disabled = true;
@@ -274,7 +310,7 @@ async function initialize(): Promise<void> {
   } finally {
     busy = false;
     scan.disabled = false;
-    scan.textContent = source ? 'Scan for Duplicates' : 'Retry connection';
+    updateScanLabel();
   }
 }
 
@@ -295,6 +331,10 @@ resultsSearch.addEventListener('input', () => {
   resultsFeedback.textContent = visible.length ? '' : 'No matching songs.';
 });
 resultsSort.addEventListener('change', renderResults);
+resultsMin.addEventListener('change', () => {
+  renderResults();
+  resultsFeedback.textContent = visible.length ? '' : 'No matching songs.';
+});
 
 copyResults.addEventListener('click', async () => {
   const text = formatResultsText(currentPlaylistName || 'Current playlist', visible, summarize(totalTracks, visible, unidentified), scanNotes);
@@ -312,7 +352,10 @@ downloadResults.addEventListener('click', () => {
 
 clearResults.addEventListener('click', () => {
   clearCachedScan();
+  hasScanResult = false;
   clearGroups();
+  setBadge(null);
+  updateScanLabel();
   setStatus('Results cleared', 'Run a scan to find repeated songs again.');
 });
 
@@ -326,6 +369,7 @@ scan.addEventListener('click', async () => {
   cancel.hidden = false;
   scan.disabled = true;
   scan.textContent = 'Scanning…';
+  setBadge(null);
   clearGroups();
   progress.hidden = false;
   progress.removeAttribute('value');
@@ -363,10 +407,12 @@ scan.addEventListener('click', async () => {
     const hasGroups = duplicates.groups.length > 0;
     setStatus(hasGroups ? 'Scan complete' : duplicates.unidentified ?
       'No duplicates among identified songs' : 'No exact duplicates found',
-      `${summaryLine(resultSummary)}${hasGroups ? '' : coverage + verification + consistency}`);
+      `${summaryLine(resultSummary)}${hasGroups ? '' : coverage + verification + consistency}\nScanned ${formatDate(Date.now())}.`);
     notes.textContent = notesText;
     notes.hidden = !notesText;
     groups = duplicates.groups;
+    hasScanResult = true;
+    setBadge(groups.length);
     renderResults();
     cacheCurrent(currentPlaylist, result.info.name, result.countVerified, result.modificationChecked);
   } catch (error) {
@@ -384,7 +430,7 @@ scan.addEventListener('click', async () => {
     scanController = null;
     cancel.hidden = true;
     scan.disabled = false;
-    scan.textContent = source ? (scanFailed ? 'Retry scan' : 'Scan for Duplicates') : 'Retry connection';
+    updateScanLabel();
     progress.hidden = true;
     status.setAttribute('aria-busy', 'false');
   }

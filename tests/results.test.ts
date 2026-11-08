@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { csvFilename, filterGroups, formatResultsText, sortGroups, summarize, summaryLine, toCsv, visibleGroups } from '../src/results';
+import { csvFilename, filterGroups, formatGroupText, formatResultsText, sortGroups, summarize, summaryLine, toCsv, visibleGroups } from '../src/results';
 import type { DuplicateGroup } from '../src/types';
 
 const group = (name: string, artist: string, positions: number[]): DuplicateGroup => ({
@@ -30,6 +30,18 @@ test('sorting supports playlist order, copy count, song, and artist modes', () =
   assert.deepEqual(sortGroups(groups, 'song').map(g => g.name), ['Alpha', 'Middle, Song', 'Zebra']);
   assert.deepEqual(sortGroups(groups, 'artist').map(g => g.name), ['Middle, Song', 'Zebra', 'Alpha']);
   assert.deepEqual(visibleGroups(groups, 'artist', 'song').map(g => g.name), ['Alpha', 'Middle, Song', 'Zebra']);
+});
+
+test('the minimum-copies filter drops smaller groups and keeps the rest', () => {
+  assert.equal(visibleGroups(groups, '', 'playlist', 2).length, 3);
+  assert.deepEqual(visibleGroups(groups, '', 'playlist', 3).map(g => g.name), ['Alpha']);
+  assert.equal(visibleGroups(groups, '', 'playlist', 9).length, 0);
+  // Nonsense thresholds fall back to "every duplicate".
+  assert.equal(visibleGroups(groups, '', 'playlist', Number.NaN).length, 3);
+});
+
+test('single-group copy text carries the song, copy count and positions', () => {
+  assert.equal(formatGroupText(groups[1]!), 'Alpha — Artist C\n3 copies · positions 2, 3, 4');
 });
 
 test('summary counts groups, extra copies, and unidentified entries', () => {

@@ -52,6 +52,10 @@ try {
     if (location.search.includes('reset')) localStorage.clear();
     window.chrome = {
       runtime: { getManifest: () => ({ version }) },
+      action: {
+        setBadgeText: async ({ text }) => { window.__badge = text; },
+        setBadgeBackgroundColor: async () => {},
+      },
       tabs: { query: async () => [{ id: 1, url: await window.readPlayerUrl() }] },
       scripting: { executeScript: async ({ target, world, func, args }) => {
         if (world !== 'MAIN' || target.tabId !== 1 || target.frameIds[0] !== 0) throw new Error('Unexpected injection');
@@ -97,6 +101,8 @@ try {
       assert.equal(await popup.locator('.song').textContent(), 'Numb');
       assert.equal(await popup.locator('.artist').textContent(), 'Linkin Park');
       assert.equal(await popup.locator('.counts').textContent(), 'This song appears 3 times');
+      assert.equal(await popup.locator('#scan').textContent(), 'Scan again');
+      assert.equal(await popup.evaluate(() => window.__badge), '1');
       const paths = await apple.evaluate(() => window.requests);
       assert.equal(paths.length, 6); // initial metadata + before + 3 track pages + after
       assert.ok(paths.every(path => /^\/v1\/me\/library\/playlists\/p\.fixture(?:\/tracks\?|$)/.test(path)));
@@ -107,6 +113,13 @@ try {
 
     await open('duplicates');
     await scan();
+    assert.equal(await popup.evaluate(() => window.__badge), '1');
+    // Minimum-copies filter hides smaller groups and restores them.
+    await popup.locator('#results-min').selectOption('4');
+    assert.equal(await popup.locator('#duplicate-list li').count(), 0);
+    assert.equal(await popup.locator('#results-empty').isVisible(), true);
+    await popup.locator('#results-min').selectOption('2');
+    assert.equal(await popup.locator('#duplicate-list li').count(), 1);
     // Copy is stubbed here so the assertion does not depend on headless clipboard policy.
     await popup.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', {
@@ -121,6 +134,14 @@ try {
     const copied = await popup.evaluate(() => window.__copiedResults);
     assert.match(copied, /Numb — Linkin Park — 3 copies — positions 1, 101, 245/);
     assert.match(await popup.locator('#results-feedback').textContent(), /Copied 1 song/);
+
+    // Per-group copy carries only that song's positions.
+    await popup.evaluate(() => { window.__copiedResults = null; });
+    await popup.getByRole('button', { name: 'Copy Numb by Linkin Park' }).click();
+    await popup.waitForFunction(() => Boolean(window.__copiedResults));
+    const copiedGroup = await popup.evaluate(() => window.__copiedResults);
+    assert.equal(copiedGroup, 'Numb — Linkin Park\n3 copies · positions 1, 101, 245');
+    assert.match(await popup.locator('#results-feedback').textContent(), /Copied Numb\./);
 
     const downloadPromise = popup.waitForEvent('download');
     await popup.getByRole('button', { name: 'Download visible results as CSV' }).click();
@@ -140,8 +161,10 @@ try {
     await popup.getByRole('button', { name: 'Clear results' }).click();
     assert.equal(await popup.locator('#status-title').textContent(), 'Results cleared');
     assert.equal(await popup.locator('#duplicate-list li').count(), 0);
+    assert.equal(await popup.evaluate(() => window.__badge), '');
+    assert.equal(await popup.locator('#scan').textContent(), 'Scan for Duplicates');
     assert.equal(await popup.evaluate(() => localStorage.getItem('amdf:last-scan:v1')), null);
-    console.log(`PASS (${apiMode}): copy, CSV export, cached last scan, and explicit clear`);
+    console.log(`PASS (${apiMode}): copy (all and per song), CSV export, minimum-copies filter, toolbar badge, scan-again label, cached last scan, and explicit clear`);
 
     for (const scenario of ['empty', 'distinct']) {
       await open(scenario);

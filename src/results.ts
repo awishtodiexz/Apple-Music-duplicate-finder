@@ -25,6 +25,11 @@ export function filterGroups(groups: readonly DuplicateGroup[], query: string): 
     group.name.toLocaleLowerCase().includes(needle) || group.artist.toLocaleLowerCase().includes(needle));
 }
 
+export function filterByCopies(groups: readonly DuplicateGroup[], minCopies: number): DuplicateGroup[] {
+  if (!Number.isFinite(minCopies) || minCopies <= 2) return [...groups];
+  return groups.filter(group => group.copies >= minCopies);
+}
+
 export function sortGroups(groups: readonly DuplicateGroup[], mode: SortMode): DuplicateGroup[] {
   const sorted = [...groups];
   switch (mode) {
@@ -43,8 +48,9 @@ export function sortGroups(groups: readonly DuplicateGroup[], mode: SortMode): D
   return sorted;
 }
 
-export function visibleGroups(groups: readonly DuplicateGroup[], query: string, mode: SortMode): DuplicateGroup[] {
-  return sortGroups(filterGroups(groups, query), mode);
+export function visibleGroups(groups: readonly DuplicateGroup[], query: string, mode: SortMode,
+  minCopies = 2): DuplicateGroup[] {
+  return sortGroups(filterByCopies(filterGroups(groups, query), minCopies), mode);
 }
 
 export function summaryLine(summary: ResultSummary): string {
@@ -66,6 +72,12 @@ export function formatResultsText(playlistName: string, groups: readonly Duplica
       `— positions ${group.positions.join(', ')}`);
   }
   return lines.join('\n');
+}
+
+/** A single group, for the per-song copy button. */
+export function formatGroupText(group: DuplicateGroup): string {
+  const copies = `${group.copies.toLocaleString()} ${group.copies === 1 ? 'copy' : 'copies'}`;
+  return `${group.name} — ${group.artist}\n${copies} · positions ${group.positions.join(', ')}`;
 }
 
 function csvField(value: string): string {

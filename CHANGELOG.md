@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- Show the number of repeated songs on the toolbar badge after a scan; **Clear results** removes it.
+- Copy a single song's positions from its result row.
+- Filter results by minimum copies (2+, 3+, 4+ or 5+).
+
+### Changed
+
+- The scan button reads **Scan again** once a scan has completed, and the completion time is shown with the result.
+
 ## [1.2.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.0) (2026-11-08)
 
 Feature release from the audit backlog: a results workflow (search, sort, copy, CSV, cached last scan), a manual theme control, and reliability and performance work. Permissions are unchanged.
