@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.2.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.0) (2026-11-08)
+
+Feature release from the audit backlog: a results workflow (search, sort, copy, CSV, cached last scan), a manual theme control, and reliability and performance work. Permissions are unchanged.
+
 ### Added
 
 - Add a theme control in the popup header: Auto follows the operating system, Light and Dark override it, and the choice is stored locally.
