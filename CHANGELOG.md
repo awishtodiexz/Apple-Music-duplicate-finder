@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add a theme control in the popup header: Auto follows the operating system, Light and Dark override it, and the choice is stored locally.
 - Search and sort repeated-song results, copy the visible list, and download it as CSV.
 - Restore the last completed scan when the popup reopens; clear it explicitly with **Clear**.
 - Show extra-copy counts, collapse very large position lists until expanded, and expose stable error codes plus the extension version for diagnostics.

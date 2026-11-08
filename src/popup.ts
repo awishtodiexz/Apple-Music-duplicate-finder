@@ -4,7 +4,8 @@ import { errorCode, errorMessage, ScanError } from './errors';
 import { readPlaylist, type PlaylistSource } from './playlist-reader';
 import { detectPlaylist } from './playlist-url';
 import { csvFilename, formatResultsText, summarize, summaryLine, toCsv, visibleGroups, type SortMode } from './results';
-import { clearCachedScan, loadCachedScan, saveCachedScan, type CachedScan } from './storage';
+import { clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from './storage';
+import { nextTheme, themeLabel, type ThemePreference } from './theme';
 import type { DuplicateGroup, PlaylistRef } from './types';
 
 function element<T extends HTMLElement>(id: string): T {
@@ -32,6 +33,7 @@ const clearResults = element<HTMLButtonElement>('clear-results');
 const resultsFeedback = element('results-feedback');
 const resultsEmpty = element('results-empty');
 const version = element('version');
+const themeToggle = element<HTMLButtonElement>('theme-toggle');
 const number = (value: number): string => value.toLocaleString();
 const batchSize = 50;
 const maxInlinePositions = 50;
@@ -54,6 +56,21 @@ let lastStatusWrite = 0;
 
 const manifestVersion = chrome.runtime?.getManifest?.()?.version;
 if (manifestVersion) version.textContent = `v${manifestVersion}`;
+
+// Applied before the first scan so an explicit choice never flashes the wrong palette.
+let themePreference: ThemePreference = loadThemePreference();
+function applyTheme(): void {
+  document.documentElement.dataset.theme = themePreference;
+  const label = themeLabel(themePreference);
+  themeToggle.textContent = `Theme: ${label}`;
+  themeToggle.setAttribute('aria-label', `Theme: ${label}. Switch to ${themeLabel(nextTheme(themePreference))}.`);
+}
+applyTheme();
+themeToggle.addEventListener('click', () => {
+  themePreference = nextTheme(themePreference);
+  saveThemePreference(themePreference);
+  applyTheme();
+});
 
 function setStatus(title: string, detail: string, error = false, code?: string): void {
   // Assigning identical text still replaces the node and re-triggers a live

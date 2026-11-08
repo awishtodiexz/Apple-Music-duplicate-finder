@@ -1,6 +1,8 @@
+import { isThemePreference, type ThemePreference } from './theme';
 import type { DuplicateGroup } from './types';
 
 const cacheKey = 'amdf:last-scan:v1';
+const themeKey = 'amdf:theme:v1';
 const maxCacheChars = 2_000_000;
 
 export interface CachedScan {
@@ -86,4 +88,22 @@ export function clearCachedScan(): void {
   const store = storage();
   if (!store) return;
   try { store.removeItem(cacheKey); } catch { /* ignore */ }
+}
+
+/** Missing, unreadable, or unknown values fall back to the system theme. */
+export function loadThemePreference(): ThemePreference {
+  const store = storage();
+  if (!store) return 'auto';
+  try {
+    const value = store.getItem(themeKey);
+    return isThemePreference(value) ? value : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+export function saveThemePreference(preference: ThemePreference): void {
+  const store = storage();
+  if (!store) return;
+  try { store.setItem(themeKey, preference); } catch { /* ignore */ }
 }

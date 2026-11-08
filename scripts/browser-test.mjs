@@ -344,6 +344,49 @@ try {
     assert.match(await popup.locator('.positions').textContent(), /6,000$/);
     console.log(`PASS (${apiMode}): reconnect, failed-scan recovery, unknown identity coverage, numeric progress, 2,400 tracks / 1,200 groups in batches, singular remaining batch, keyboard focus, document scrolling with real wheel input at three sizes (including 300px high) and both color schemes`);
   }
+
+  // Theme control: system default, explicit choice beats the OS, and the choice persists.
+  await popup.emulateMedia({ colorScheme: 'light' });
+  await popup.goto(popupUrl);
+  await popup.waitForSelector('#theme-toggle');
+  const themeState = () => popup.evaluate(() => ({
+    attr: document.documentElement.getAttribute('data-theme'),
+    bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+    label: document.querySelector('#theme-toggle').textContent,
+    stored: localStorage.getItem('amdf:theme:v1'),
+  }));
+  let theme = await themeState();
+  assert.equal(theme.attr, 'auto');
+  assert.equal(theme.label, 'Theme: Auto');
+  assert.equal(theme.bg, '#fbfbfd');
+  await popup.locator('#theme-toggle').click();
+  theme = await themeState();
+  assert.equal(theme.attr, 'light');
+  assert.equal(theme.stored, 'light');
+  assert.equal(theme.bg, '#fbfbfd');
+  await popup.locator('#theme-toggle').click();
+  theme = await themeState();
+  assert.equal(theme.attr, 'dark');
+  assert.equal(theme.stored, 'dark');
+  assert.equal(theme.bg, '#19191d');
+  assert.equal(await popup.locator('#theme-toggle').getAttribute('aria-label'), 'Theme: Dark. Switch to Auto.');
+  // Explicit dark survives a reload and still wins on a light operating system.
+  await popup.emulateMedia({ colorScheme: 'light' });
+  await popup.goto(popupUrl);
+  await popup.waitForSelector('#theme-toggle');
+  assert.equal((await themeState()).bg, '#19191d');
+  // Back to Auto, which then follows the system live in both directions.
+  await popup.locator('#theme-toggle').click();
+  theme = await themeState();
+  assert.equal(theme.attr, 'auto');
+  assert.equal(theme.stored, 'auto');
+  assert.equal(theme.bg, '#fbfbfd');
+  await popup.emulateMedia({ colorScheme: 'dark' });
+  assert.equal((await themeState()).bg, '#19191d');
+  await popup.emulateMedia({ colorScheme: 'light' });
+  assert.equal((await themeState()).bg, '#fbfbfd');
+  console.log('PASS: theme control defaults to Auto, explicit Light/Dark overrides the system, persists across reloads, and Auto follows the system live');
+
   assert.deepEqual(pageErrors, []);
   console.log(`PASS: ${scenarioCount} UI fixture scenarios across both API versions; no popup runtime exceptions`);
   console.log('UNVERIFIED by fixtures: installation/activeTab (covered separately by test:extension), live Apple Music, branded Chrome/Edge');

@@ -59,5 +59,6 @@ If MusicKit is unavailable or returns an unsupported format, scanning stops with
 | [duplicates.ts](../src/duplicates.ts) | Exact duplicate grouping |
 | [popup.ts](../src/popup.ts) | Popup state, status, and rendering |
 | [results.ts](../src/results.ts) | Filtering, sorting, copy text and CSV formatting |
-| [storage.ts](../src/storage.ts) | Bounded local cache of the last completed scan |
+| [storage.ts](../src/storage.ts) | Bounded local cache of the last completed scan and the theme preference |
+| [theme.ts](../src/theme.ts) | Theme preference values, cycling order and labels |
 | [errors.ts](../src/errors.ts), [types.ts](../src/types.ts) | Error handling and shared types |

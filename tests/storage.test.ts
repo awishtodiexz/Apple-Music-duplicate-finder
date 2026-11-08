@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clearCachedScan, loadCachedScan, saveCachedScan, type CachedScan } from '../src/storage';
+import { clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from '../src/storage';
 import type { DuplicateGroup } from '../src/types';
 
 const values = new Map<string, string>();
@@ -47,4 +47,18 @@ test('clearing removes the cached scan', () => {
   assert.equal(saveCachedScan(scan), true);
   clearCachedScan();
   assert.equal(loadCachedScan('p.fixture'), null);
+});
+
+test('the theme preference defaults to auto and survives a round-trip', () => {
+  values.delete('amdf:theme:v1');
+  assert.equal(loadThemePreference(), 'auto');
+  saveThemePreference('dark');
+  assert.equal(loadThemePreference(), 'dark');
+});
+
+test('an unknown or corrupt theme preference falls back to auto', () => {
+  values.set('amdf:theme:v1', 'purple');
+  assert.equal(loadThemePreference(), 'auto');
+  values.set('amdf:theme:v1', '');
+  assert.equal(loadThemePreference(), 'auto');
 });

@@ -31,7 +31,7 @@ A free, open-source Chrome and Edge extension that shows which songs appear more
 - Lets you cancel scans and enforces ten-minute, 50,000-entry, 2,000-page, and 16-million-character limits.
 - Search and sort repeated songs, copy the visible list, or download it as CSV.
 - Restores the last completed scan when the popup is reopened; **Clear** removes it.
-- Renders results in batches with keyboard focus and light/dark theme support. Very large duplicate groups collapse long position lists until you expand them.
+- Renders results in batches with keyboard focus and light/dark themes. The header theme control switches between Auto (follows your system), Light and Dark, and remembers the choice. Very large duplicate groups collapse long position lists until you expand them.
 
 ## Installation
 

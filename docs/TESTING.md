@@ -21,6 +21,7 @@ The expanded suites contain **92 unit tests**, **56 browser fixture scenarios**,
 - Search, sort, copy, CSV export, cached-last-scan restore and explicit clear, extra-copy counts, and collapsed position lists for very large duplicate groups.
 - Error-code diagnostics, retry-after propagation, internal-error classification, and localized tab-access handling through tab state.
 - Icon paths and dimensions, keyboard focus, and document scrolling down to 300 × 300 pixels in light and dark modes.
+- The theme control: Auto follows the emulated system scheme, Light and Dark override it, and an explicit choice survives a popup reload.
 - The 50,000-entry boundary, metadata/page budgets, overall deadlines during metadata/pages/final validation, prompt cancellation, late replies, and independent concurrent scans.
 - Reordering, replacing, renaming, adding, and removing entries via changed metadata markers, and explicit unverified-consistency status when markers are absent.
 - Exact ZIP contents, version alignment, deterministic bytes, checksum validation, tampered-archive rejection, minimal permissions, CSP, and targeted credential-pattern checks.
