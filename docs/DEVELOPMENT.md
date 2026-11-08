@@ -49,7 +49,7 @@ Replace these examples with the actual executable path. The fixture runner uses 
 | `npm run check` | Build, type-check, run all three test suites, verify packaging, and run static security checks |
 | `npm run package` | Build and create the installation ZIP in `artifacts/` |
 
-The ZIP filename uses the manifest version: version `1.1.1` produces `artifacts/apple-music-duplicate-finder-v1.1.1.zip`. Its checksum is `artifacts/apple-music-duplicate-finder-v1.1.1.zip.sha256`. Historical release 1.0 used a different download filename; do not rename or replace that published asset.
+The ZIP filename uses the manifest version: version `1.1.2` produces `artifacts/apple-music-duplicate-finder-v1.1.2.zip`. Its checksum is `artifacts/apple-music-duplicate-finder-v1.1.2.zip.sha256`. Historical release 1.0 used a different download filename; do not rename or replace that published asset.
 
 New builds also generate a `.zip.sha256` sidecar. ZIP entry order and timestamps are fixed, so packaging identical build files produces identical bytes. The sidecar detects corruption; it is not a signature or independent proof of the publisher. Published release assets remain unchanged until a new release is explicitly prepared.
 
