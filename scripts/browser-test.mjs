@@ -104,7 +104,8 @@ try {
       assert.equal(await popup.locator('#scan').textContent(), 'Scan again');
       assert.equal(await popup.evaluate(() => window.__badge), '1');
       const paths = await apple.evaluate(() => window.requests);
-      assert.equal(paths.length, 6); // initial metadata + before + 3 track pages + after
+      // Connect metadata (reused as the baseline) + 3 track pages + validation metadata.
+      assert.equal(paths.length, 5);
       assert.ok(paths.every(path => /^\/v1\/me\/library\/playlists\/p\.fixture(?:\/tracks\?|$)/.test(path)));
       await mkdir('artifacts', { recursive: true });
       await popup.screenshot({ path: 'artifacts/popup-results.png', fullPage: true });
@@ -157,7 +158,36 @@ try {
     await popup.goto(popupUrl);
     await popup.getByRole('heading', { name: 'Showing last scan' }).waitFor();
     assert.equal(await popup.locator('#duplicate-list li').count(), 1);
+    await popup.waitForFunction(() => /Rescan to refresh/.test(document.querySelector('#status-detail').textContent));
     assert.match(await popup.locator('#status-detail').textContent(), /Cached .*Rescan to refresh/);
+
+    // Cached results stay visible when MusicKit is unavailable.
+    await apple.evaluate(() => { window.scenario = 'unavailable'; });
+    await popup.goto(popupUrl);
+    await popup.getByRole('heading', { name: 'Showing last scan' }).waitFor();
+    assert.equal(await popup.locator('#duplicate-list li').count(), 1);
+    await popup.waitForFunction(() => document.querySelector('#status-code').textContent === 'Error code: MUSICKIT_UNAVAILABLE');
+    assert.match(await popup.locator('#status-detail').textContent(), /Cached .*MusicKit instance is unavailable/);
+    assert.equal(await popup.locator('#status-code').textContent(), 'Error code: MUSICKIT_UNAVAILABLE');
+    assert.equal(await popup.locator('#scan').textContent(), 'Retry connection');
+    // Reconnecting after the player recovers keeps the cache and enables a rescan.
+    await apple.evaluate(() => { window.scenario = 'duplicates'; });
+    await popup.locator('#scan').click();
+    await popup.waitForFunction(() => document.querySelector('#scan').textContent === 'Scan again');
+    assert.match(await popup.locator('#status-detail').textContent(), /Rescan to refresh/);
+
+    // Opening the popup on a different playlist clears the previous badge.
+    assert.equal(await popup.evaluate(() => window.__badge), '1');
+    await apple.evaluate(() => history.replaceState({}, '', '/us/library/playlist/p.other'));
+    await popup.goto(popupUrl);
+    await popup.getByRole('heading', { name: 'Ready to scan' }).waitFor();
+    assert.equal(await popup.evaluate(() => window.__badge), '');
+    await apple.evaluate(() => history.replaceState({}, '', '/us/library/playlist/p.fixture'));
+    await popup.goto(popupUrl);
+    await popup.getByRole('heading', { name: 'Showing last scan' }).waitFor();
+    // The cached paint is immediate; wait for the reconnect to finish before clearing.
+    await popup.waitForFunction(() => document.querySelector('#scan').textContent === 'Scan again');
+
     await popup.getByRole('button', { name: 'Clear results' }).click();
     assert.equal(await popup.locator('#status-title').textContent(), 'Results cleared');
     assert.equal(await popup.locator('#duplicate-list li').count(), 0);

@@ -11,6 +11,17 @@
 ### Changed
 
 - The scan button reads **Scan again** once a scan has completed, and the completion time is shown with the result.
+- The first scan after opening the popup reuses the connection metadata, removing one Apple Music round trip.
+- The local cache holds a full 50,000-track result set (raised from 2 MB to 4.5 MB).
+- Large position lists render about twenty times faster by reusing one number formatter.
+
+### Fixed
+
+- Cached results stay visible when Apple Music is unreachable or MusicKit is unavailable, instead of showing only a connection error.
+- A rendering error while reporting scan progress no longer discards an otherwise valid scan.
+- The toolbar badge no longer carries over when the popup is opened on a different playlist.
+- A modification marker that appears between the first and last page now invalidates the scan.
+- Injection failures caused by tab access now report the `TAB_ACCESS` code instead of `UNEXPECTED`.
 
 ## [1.2.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.0) (2026-11-08)
 

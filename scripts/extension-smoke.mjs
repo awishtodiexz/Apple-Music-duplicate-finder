@@ -136,7 +136,8 @@ try {
     assert.equal(await popup.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: 1, 101, 245');
     assert.equal(await popup.evaluate(() => document.querySelector('.counts').textContent), 'This song appears 3 times');
     assert.equal(await popup.evaluate(() => document.querySelectorAll('img').length), 0);
-    assert.equal((await apple.evaluate(() => window.requests)).length, 6);
+    // Connect metadata (reused as the scan baseline) + 3 track pages + validation metadata.
+    assert.equal((await apple.evaluate(() => window.requests)).length, 5);
     assert.deepEqual(await popup.evaluate(() => chrome.runtime.getManifest().permissions), ['activeTab', 'scripting']);
     assert.equal(await popup.evaluate(() => chrome.runtime.getManifest().version), version);
     console.log(`PASS (${mode}): toolbar popup, real activeTab grant, MAIN injection, pagination and safe rendering`);

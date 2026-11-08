@@ -3,7 +3,9 @@ import type { DuplicateGroup } from './types';
 
 const cacheKey = 'amdf:last-scan:v1';
 const themeKey = 'amdf:theme:v1';
-const maxCacheChars = 2_000_000;
+// Chromium allows 5,000,000 characters per origin; a full 50,000-track scan with
+// 25,000 groups measures 2.97 MB, so this leaves headroom without risking quota errors.
+const maxCacheChars = 4_500_000;
 
 export interface CachedScan {
   version: 1;

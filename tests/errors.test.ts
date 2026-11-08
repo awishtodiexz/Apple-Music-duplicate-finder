@@ -19,9 +19,11 @@ test('diagnostic codes stay stable and never include provider text', () => {
   assert.equal(errorCode(new TypeError('private')), 'UNEXPECTED');
 });
 
-test('permission denials keep the tab-access guidance', (t) => {
+test('permission denials keep the tab-access guidance and code', (t) => {
   t.mock.method(console, 'error', () => {});
-  assert.match(errorMessage(new Error('Cannot access contents of the page. Extension manifest must request permission.')), /could not access this tab/);
+  const denial = new Error('Cannot access contents of the page. Extension manifest must request permission.');
+  assert.match(errorMessage(denial), /could not access this tab/);
+  assert.equal(errorCode(denial), 'TAB_ACCESS');
 });
 
 test('unexpected failures are logged and never blamed on the tab', (t) => {

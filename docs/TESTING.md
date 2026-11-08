@@ -19,6 +19,7 @@ The expanded suites contain **92 unit tests**, **56 browser fixture scenarios**,
 - Legacy `api.get()` and v3 `api.music()` response shapes, timeouts, failed HTTP wrappers, errors after partial retrieval, and catalog storefront precedence.
 - Popup progress, recovery, safe text rendering, unknown-identity warnings, batches of results, and singular remaining-batch text.
 - Search, sort, copy, CSV export, cached-last-scan restore and explicit clear, extra-copy counts, and collapsed position lists for very large duplicate groups.
+- Cached results paint before the player connects and stay visible when MusicKit is unavailable; the badge is cleared when the popup opens on a different playlist, and the first scan reuses the connection metadata.
 - Error-code diagnostics, retry-after propagation, internal-error classification, and localized tab-access handling through tab state.
 - Icon paths and dimensions, keyboard focus, and document scrolling down to 300 × 300 pixels in light and dark modes.
 - The theme control: Auto follows the emulated system scheme, Light and Dark override it, and an explicit choice survives a popup reload.

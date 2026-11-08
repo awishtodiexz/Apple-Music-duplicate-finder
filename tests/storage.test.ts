@@ -39,8 +39,22 @@ test('corrupt or invalid cached data is ignored', () => {
 
 test('oversized results are refused and do not leave stale data behind', () => {
   clearCachedScan();
-  assert.equal(saveCachedScan({ ...scan, groups: [{ ...group, name: 'x'.repeat(2_000_000) }] }), false);
+  assert.equal(saveCachedScan({ ...scan, groups: [{ ...group, name: 'x'.repeat(5_000_000) }] }), false);
   assert.equal(loadCachedScan('p.fixture'), null);
+});
+
+test('a full 50,000-track result set fits the cache', () => {
+  values.clear();
+  const groups = Array.from({ length: 25_000 }, (_, index) => ({
+    identity: `catalog:${index}`,
+    name: `Song ${index}`,
+    artist: 'Artist',
+    positions: [index * 2 + 1, index * 2 + 2],
+    copies: 2,
+    extraCopies: 1,
+  }));
+  assert.equal(saveCachedScan({ ...scan, groups, totalTracks: 50_000 }), true);
+  assert.equal(loadCachedScan('p.fixture')?.groups.length, 25_000);
 });
 
 test('clearing removes the cached scan', () => {

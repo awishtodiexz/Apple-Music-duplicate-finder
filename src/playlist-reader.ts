@@ -35,6 +35,11 @@ export interface ScanOptions {
   maxTracks?: number;
   maxPages?: number;
   maxMetadataChars?: number;
+  /**
+   * Metadata already fetched by the popup while connecting. It is used as the
+   * change-detection baseline so a scan does not repeat the same round trip.
+   */
+  info?: PlaylistInfo;
 }
 
 /** Preserve every occurrence. Failures, deadlines and cancellation never return partial results. */
@@ -117,13 +122,18 @@ export async function readPlaylist(
     }
   }
   try {
-    const info = await readWithRetry(() => source.metadata(controller.signal));
+    const info = options.info ?? await readWithRetry(() => source.metadata(controller.signal));
     let total = verifiedTotal(info.total);
     const tracks: Track[] = [];
     let metadataChars = 0;
     const progress = (phase: ScanProgress['phase']): void => {
       check();
-      onProgress({ retrieved: tracks.length, total, elapsedMs: now() - started, phase });
+      try {
+        onProgress({ retrieved: tracks.length, total, elapsedMs: now() - started, phase });
+      } catch (error) {
+        // A rendering failure in the popup must not discard an otherwise valid scan.
+        console.error('[amdf] progress handler failed', error);
+      }
       check();
     };
     if (total !== null && total > maxTracks) throw new ScanError('LIMIT');
@@ -167,8 +177,8 @@ export async function readPlaylist(
     progress('validating');
     const after = await readWithRetry(() => source.metadata(controller.signal));
     if ((after.total !== null && after.total !== tracks.length) ||
-      (info.modified !== null && after.modified !== info.modified) ||
-      (info.revision != null && after.revision !== info.revision) || after.name !== info.name) {
+      (info.modified ?? null) !== (after.modified ?? null) ||
+      (info.revision ?? null) !== (after.revision ?? null) || after.name !== info.name) {
       throw new ScanError('INCOMPLETE');
     }
     return {

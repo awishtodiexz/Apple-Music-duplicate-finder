@@ -12,8 +12,10 @@ window.MusicKit = { getInstance() {
       await new Promise(resolve => setTimeout(resolve, window.fixtureDelay || 25));
       const scenario = window.scenario;
       const offset = Number(new URL(path, location.origin).searchParams.get('offset'));
+      // Echo the requested playlist id so a second fixture playlist behaves like a real one.
+      const playlistId = (new URL(path, location.origin).pathname.split('/playlists/')[1] || 'p.fixture').split('/')[0];
       const length = scenario === 'empty' ? 0 : scenario === 'huge' ? 50001 : scenario === 'many' ? 2400 : scenario === 'oneGroup' ? 6000 : scenario === 'fiftyOne' ? 102 : 245;
-      if (!path.includes('/tracks?')) return { data: [{ id: 'p.fixture', type: 'library-playlists',
+      if (!path.includes('/tracks?')) return { data: [{ id: playlistId, type: 'library-playlists',
         attributes: { name: scenario === 'coverage' ? 'Very long playlist name '.repeat(40) : '<img src=x onerror=alert(1)> My playlist', trackCount: scenario === 'coverage' ? undefined : scenario === 'incomplete' ? 250 : length,
           lastModifiedDate: scenario === 'noMarker' ? undefined : '2026-10-23T00:00:00Z' } }] };
       if (scenarioAtStart === 'lateFailure') { window.lateFailures = (window.lateFailures || 0) + 1; throw new TypeError('Late request failed'); }

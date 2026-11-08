@@ -35,6 +35,13 @@ const messages: Record<ErrorCode, string> = {
 /** Unexpected failures are a bug, not a user mistake: log them instead of blaming the tab. */
 const unexpected = 'The extension hit an unexpected error. Reload the popup and try again.';
 const offline = 'The extension could not access this tab. Open an Apple Music playlist, reload the page, and retry.';
+// Chrome's injection rejections carry no stable code, only localized-free prefixes.
+const tabAccessPattern = /Cannot access contents|must request permission|The extensions gallery/i;
+
+function detailOf(error: unknown): string {
+  return typeof (error as { message?: unknown })?.message === 'string' ?
+    (error as { message: string }).message : '';
+}
 
 export function errorMessage(error: unknown): string {
   if (error instanceof ScanError) {
@@ -42,13 +49,11 @@ export function errorMessage(error: unknown): string {
     return messages[error.code];
   }
   console.error('[amdf] unexpected failure', error);
-  // Chrome's injection rejections carry no stable code, only a message.
-  const detail = typeof (error as { message?: unknown })?.message === 'string' ?
-    (error as { message: string }).message : '';
-  return /Cannot access contents|must request permission|The extensions gallery/i.test(detail) ? offline : unexpected;
+  return tabAccessPattern.test(detailOf(error)) ? offline : unexpected;
 }
 
 /** Stable label used by the popup diagnostics line; never contains provider text. */
 export function errorCode(error: unknown): string {
-  return error instanceof ScanError ? error.code : 'UNEXPECTED';
+  if (error instanceof ScanError) return error.code;
+  return tabAccessPattern.test(detailOf(error)) ? 'TAB_ACCESS' : 'UNEXPECTED';
 }

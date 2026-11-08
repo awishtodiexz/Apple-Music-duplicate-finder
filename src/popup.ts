@@ -6,7 +6,7 @@ import { detectPlaylist } from './playlist-url';
 import { csvFilename, formatGroupText, formatResultsText, summarize, summaryLine, toCsv, visibleGroups, type SortMode } from './results';
 import { clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from './storage';
 import { nextTheme, themeLabel, type ThemePreference } from './theme';
-import type { DuplicateGroup, PlaylistRef } from './types';
+import type { DuplicateGroup, PlaylistInfo, PlaylistRef } from './types';
 
 function element<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -35,10 +35,13 @@ const resultsFeedback = element('results-feedback');
 const resultsEmpty = element('results-empty');
 const version = element('version');
 const themeToggle = element<HTMLButtonElement>('theme-toggle');
-const number = (value: number): string => value.toLocaleString();
+const numberFormat = new Intl.NumberFormat();
+const number = (value: number): string => numberFormat.format(value);
 const batchSize = 50;
 const maxInlinePositions = 50;
 let source: PlaylistSource | null = null;
+// Fetched while connecting; reused once so the first scan skips a round trip.
+let pendingInfo: PlaylistInfo | null = null;
 let currentPlaylist: PlaylistRef | null = null;
 let currentPlaylistName = '';
 let busy = false;
@@ -78,8 +81,9 @@ themeToggle.addEventListener('click', () => {
 function setBadge(count: number | null): void {
   try {
     if (!chrome.action) return;
-    void chrome.action.setBadgeBackgroundColor({ color: '#c7284e' });
-    void chrome.action.setBadgeText({ text: count === null ? '' : count > 999 ? '999+' : String(count) });
+    void Promise.resolve(chrome.action.setBadgeBackgroundColor({ color: '#c7284e' })).catch(() => {});
+    void Promise.resolve(chrome.action.setBadgeText({ text: count === null ? '' : count > 999 ? '999+' : String(count) }))
+      .catch(() => {});
   } catch {
     // Decorative only; never let a badge failure affect a scan.
   }
@@ -274,39 +278,61 @@ function downloadCsv(): void {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function cachedStatus(cached: CachedScan): string {
+  return `${summaryLine(summarize(cached.totalTracks, cached.groups, cached.unidentified))}\nCached ${formatDate(cached.scannedAt)}.`;
+}
+
 async function initialize(): Promise<void> {
   busy = true;
   scanFailed = false;
   hasScanResult = false;
   source = null;
   currentPlaylist = null;
+  pendingInfo = null;
   scan.disabled = true;
   scan.textContent = 'Connecting…';
   playlistName.textContent = 'Detecting playlist…';
   playlistName.title = '';
   setStatus('Connecting to Apple Music…', 'Checking the current playlist.');
+  let restored = false;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id === undefined) throw new Error('Tab unavailable');
     const playlist = detectPlaylist(tab.url ?? '');
     const candidate = createBrowserSource(tab.id, playlist);
-    const info = await candidate.metadata();
-    source = candidate;
-    currentPlaylist = playlist;
-    currentPlaylistName = info.name;
-    playlistName.textContent = info.name;
-    playlistName.title = info.name;
+    // A cached scan does not need the player, so paint it before the round trip:
+    // a slow, signed-out or unreachable MusicKit must not hide existing results.
     const cached = loadCachedScan(playlist.id);
     if (cached) {
       restoreCached(cached);
-      setStatus('Showing last scan',
-        `${summaryLine(summarize(cached.totalTracks, cached.groups, cached.unidentified))}\nCached ${formatDate(cached.scannedAt)}. Rescan to refresh.`);
+      restored = true;
+      playlistName.textContent = cached.playlistName;
+      playlistName.title = cached.playlistName;
+      setStatus('Showing last scan', `${cachedStatus(cached)} Checking Apple Music…`);
     } else {
-      setStatus('Ready to scan', 'Find songs listed more than once. Keep this popup open while scanning.');
+      // The badge outlives the popup, so a different playlist must not inherit it.
+      setBadge(null);
+    }
+    try {
+      const info = await candidate.metadata();
+      pendingInfo = info;
+      source = candidate;
+      currentPlaylist = playlist;
+      currentPlaylistName = info.name;
+      playlistName.textContent = info.name;
+      playlistName.title = info.name;
+      setStatus(cached ? 'Showing last scan' : 'Ready to scan',
+        cached ? `${cachedStatus(cached)} Rescan to refresh.` :
+          'Find songs listed more than once. Keep this popup open while scanning.');
+    } catch (error) {
+      // Keep the cached results and explain why they cannot be refreshed.
+      if (!cached) throw error;
+      setStatus('Showing last scan', `${cachedStatus(cached)} ${errorMessage(error)}`, false, errorCode(error));
     }
   } catch (error) {
     playlistName.textContent = 'Playlist unavailable';
     setStatus('Could not connect', errorMessage(error), true, errorCode(error));
+    if (!restored) setBadge(null);
   } finally {
     busy = false;
     scan.disabled = false;
@@ -364,6 +390,8 @@ scan.addEventListener('click', async () => {
   if (!source || !currentPlaylist) { await initialize(); return; }
   busy = true;
   scanFailed = false;
+  const baselineInfo = pendingInfo ?? undefined;
+  pendingInfo = null;
   const controller = new AbortController();
   scanController = controller;
   cancel.hidden = false;
@@ -388,7 +416,7 @@ scan.addEventListener('click', async () => {
       const count = total === null ? number(retrieved) : `${number(retrieved)} of ${number(total)}`;
       setStatus(phase === 'validating' ? 'Checking playlist…' : 'Scanning playlist…',
         `${count} songs retrieved · ${Math.floor(elapsedMs / 1000)}s elapsed\nKeep this popup open while scanning.`);
-    }, { signal: controller.signal });
+    }, { signal: controller.signal, ...(baselineInfo ? { info: baselineInfo } : {}) });
     const duplicates = findDuplicates(result.tracks);
     currentPlaylistName = result.info.name;
     playlistName.textContent = result.info.name;

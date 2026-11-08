@@ -47,6 +47,38 @@ test('unknown totals, page exhaustion and metadata budgets cannot return truncat
   await assert.rejects(readPlaylist(sourceFor(1).source, undefined, { maxTracks: 1_000_000 }), { code: 'LIMIT' });
 });
 
+test('metadata fetched while connecting is reused as the scan baseline', async () => {
+  let metadataCalls = 0;
+  const { source } = sourceFor(245, 245);
+  const counted: PlaylistSource = {
+    ...source,
+    metadata: async () => { metadataCalls++; return { ...info, total: 245 }; },
+  };
+  const result = await readPlaylist(counted, undefined, { info: { ...info, total: 245 } });
+  assert.equal(result.tracks.length, 245);
+  // Only the final validation round trip remains.
+  assert.equal(metadataCalls, 1);
+});
+
+test('a progress handler that throws does not discard a valid scan', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const result = await readPlaylist(sourceFor(245).source, () => { throw new Error('render failed'); });
+  assert.equal(result.tracks.length, 245);
+});
+
+test('a modification marker appearing mid-scan invalidates the result', async () => {
+  let calls = 0;
+  const { source } = sourceFor(245, 245);
+  const changing: PlaylistSource = {
+    ...source,
+    metadata: async () => {
+      calls++;
+      return calls === 1 ? { ...info, total: 245, modified: null } : { ...info, total: 245, modified: '2026-02-02' };
+    },
+  };
+  await assert.rejects(readPlaylist(changing), { code: 'INCOMPLETE' });
+});
+
 test('a pre-cancelled scan never calls its source', async () => {
   const controller = new AbortController();
   controller.abort();
