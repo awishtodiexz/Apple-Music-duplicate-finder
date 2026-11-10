@@ -38,7 +38,8 @@ const changelog = await read('CHANGELOG.md');
 const latestChangelogVersion = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
 assert.equal(latestChangelogVersion, version, 'CHANGELOG top version must be the current version');
 const releaseNotes = await read(`docs/releases/v${version}.md`);
-assert.match(releaseNotes, new RegExp(`^# Apple Music Duplicate Finder v${version.replace(/\./g, '\\.')}$`, 'm'),
+const releaseTitle = `# Apple Music Duplicate Finder v${version}`;
+assert.ok(releaseNotes.split('\n').some(line => line.replace(/\r$/, '') === releaseTitle),
   'release notes title must name the current version');
 assert.ok(releaseNotes.includes(`apple-music-duplicate-finder-v${version}.zip`),
   'release notes must name the current ZIP');

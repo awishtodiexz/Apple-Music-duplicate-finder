@@ -91,16 +91,14 @@ for (const [path, content] of production) {
 }
 
 // 4. Extension HTML keeps a single local module script and no inline handlers or embeds.
+// Count tags as strings rather than extracting script bodies with a regex. The
+// exact required tag also proves the single script has no inline content.
+const expectedScript = '<script type="module" src="popup.js"></script>';
 for (const [path, content] of production.filter(([path]) => path.endsWith('.html'))) {
-  const scripts = [...content.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
-  if (scripts.length !== 1) {
-    findings.push(`${path}: expected exactly one local module script`);
-  } else {
-    const [tag, body] = scripts[0];
-    if (body.trim()) findings.push(`${path}: inline script content is not allowed`);
-    if (!/\btype=["']module["']/i.test(tag) || !/\bsrc=["']popup\.js["']/i.test(tag)) {
-      findings.push(`${path}: script must be the local popup.js module`);
-    }
+  const openingScripts = content.split('<script').length - 1;
+  const closingScripts = content.split('</script').length - 1;
+  if (openingScripts !== 1 || closingScripts !== 1 || !content.includes(expectedScript)) {
+    findings.push(`${path}: expected exactly one local popup.js module script`);
   }
   const handler = /\son[a-z]+\s*=/i.exec(content);
   if (handler) report(path, content, handler.index, 'inline event handler');

@@ -80,7 +80,7 @@ li {
 .more-positions:hover:enabled { background: var(--soft); }
 .copy-group { grid-area: copy; align-self: start; justify-self: end; width: auto; min-height: 28px; margin: 0; padding: 3px 7px; font-size: 11px; font-weight: 600; background: transparent; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .copy-group:hover:enabled { background: var(--soft); }
-.secondary { margin-top: 10px; background: var(--soft); color: var(--accent); min-height: 36px; font-size: 12px; }
+.secondary { margin-top: 10px; background: var(--secondary-bg, var(--soft)); color: var(--secondary-ink, var(--accent)); min-height: 36px; font-size: 12px; }
 .secondary:hover:enabled { background: var(--line); }
 footer { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 12px; font-size: 11px; line-height: 1.4; color: var(--muted); text-align: center; }
 .version { white-space: nowrap; }
@@ -98,6 +98,8 @@ footer { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 12px;
     --control-line: #6f6f7d;
     --accent: #fa7493;
     --soft: #35262d;
+    --secondary-bg: var(--surface);
+    --secondary-ink: var(--ink);
   }
 }
 :root[data-theme="dark"] {
@@ -110,6 +112,8 @@ footer { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 12px;
   --control-line: #6f6f7d;
   --accent: #fa7493;
   --soft: #35262d;
+  --secondary-bg: var(--surface);
+  --secondary-ink: var(--ink);
 }
 :root[data-theme="light"] { color-scheme: light; }
 /* Windows high-contrast/forced-colors strips the filled button background.
