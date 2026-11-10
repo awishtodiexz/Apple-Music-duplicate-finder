@@ -46,7 +46,7 @@ Replace these examples with the actual executable path. The fixture runner uses 
 | `npm run test:package` | Build/package, inspect ZIP contents, verify SHA-256 and tamper rejection, and compare repeated packaging byte-for-byte |
 | `npm run check:security` | Verify built-file/permission/CSP invariants and scan current files for selected credential patterns without printing values |
 | `npm run check:docs` | Verify package, lockfile, manifest, README, release and security version references agree |
-| `npm run benchmark` | Measure reader, matcher, and CSV CPU cost at 1,000, 10,000, and 50,000 tracks (not network latency) |
+| `npm run benchmark` | Measure reader/pagination, matcher, CSV, filter/sort, retained heap and cancellation CPU cost at 1,000, 10,000, and 50,000 tracks (not network latency) |
 | `npm run audit` | Audit the full dependency tree, including development packages; fail at high severity and above |
 | `npm run check` | Verify docs/versions, build, type-check, run all three test suites, verify packaging, and run static security checks |
 | `npm run package` | Build and create the installation ZIP in `artifacts/` |
@@ -57,7 +57,7 @@ New builds also generate a `.zip.sha256` sidecar. ZIP entry order and timestamps
 
 ## Continuous integration and dependency review
 
-The CI workflow runs on pushes, pull requests, manual dispatch, and a weekly schedule. Linux jobs exercise Node 22.8.0, current Node 22, 24, and 26; a Windows job exercises Node 24. All jobs use `npm ci`, pinned action commits, read-only repository permissions, and no persisted Git credentials. No job publishes a release or extension. Branch protection on `main` requires the five CI checks; private vulnerability reporting, secret scanning with push protection, Dependabot alerts/security updates, and CodeQL default setup are enabled.
+The CI workflow runs on pushes, pull requests, manual dispatch, and a weekly schedule. Linux jobs exercise Node 22.8.0, current Node 22, 24, and 26; a Windows job exercises Node 24. All jobs use `npm ci`, pinned action commits, read-only repository permissions, and no persisted Git credentials. The Node 24 Linux job and the Windows job also run the CPU benchmark. No job publishes a release or extension. Branch protection on `main` requires the five CI checks; private vulnerability reporting, secret scanning with push protection, Dependabot alerts/security updates, and CodeQL default setup are enabled.
 
 Dependabot proposes weekly npm and GitHub Actions updates. Review advisories and changelogs, update the lockfile, and run the complete checks before accepting an update. Do not automatically cross TypeScript major versions just to obtain a newer version. See [dependency security notes](DEPENDENCIES.md).
 

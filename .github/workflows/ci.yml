@@ -41,6 +41,9 @@ jobs:
       - name: Typecheck, unit tests, fixtures, installed extension, production build and package verification
         if: matrix.node == '24'
         run: npm run check
+      - name: Benchmark reader, matcher, CSV, filter/sort and cancellation CPU paths
+        if: matrix.node == '24'
+        run: npm run benchmark
       - name: Typecheck and unit tests
         if: matrix.node != '24'
         run: npm run typecheck && npm test
@@ -60,3 +63,4 @@ jobs:
       - run: npm run audit
       - run: npx --no-install playwright install chromium
       - run: npm run check
+      - run: npm run benchmark

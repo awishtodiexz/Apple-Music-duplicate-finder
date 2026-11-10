@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { validateBuild } from './validate-build.mjs';
 
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
@@ -26,4 +27,7 @@ await build({
   minify: true,
   legalComments: 'none',
 });
+// Validate the built extension here too, so `npm run build` fails on an
+// unexpected file, manifest drift, or a broken CSP before packaging or tests.
+await validateBuild();
 console.log('Built unpacked extension in dist/');

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { chromium } from 'playwright';
+import { auditAccessibility } from './a11y-audit.mjs';
 import { fixture } from './fixtures/player.mjs';
 
 // Full bundled Chromium supports headless unpacked extensions and CDP action invocation.
@@ -9,22 +10,32 @@ import { fixture } from './fixtures/player.mjs';
 await mkdir('.cache', { recursive: true });
 const profile = await mkdtemp(resolve('.cache/extension-profile-'));
 const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+const timeoutMs = Number(process.env.AMDF_TEST_TIMEOUT_MS ?? 30_000);
+if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1_000) throw new Error('AMDF_TEST_TIMEOUT_MS must be at least 1000');
 let context;
 async function until(operation, description) {
-  const deadline = Date.now() + 15_000;
+  const deadline = Date.now() + timeoutMs;
+  let lastTransient;
   while (Date.now() < deadline) {
-    const value = await operation();
-    if (value) return value;
+    try {
+      const value = await operation();
+      if (value) return value;
+    } catch (error) {
+      // Polling a native popup can briefly race a destroyed execution context.
+      // Other errors still fail immediately instead of hiding a real defect.
+      if (!/Cannot find (?:default execution )?context|Execution context was destroyed|Inspected target navigated|Target closed|Session closed|No session with given id/.test(error.message)) throw error;
+      lastTransient = error;
+    }
     await new Promise(resolve => setTimeout(resolve, 50));
   }
-  throw new Error('Timed out: ' + description);
+  throw new Error('Timed out: ' + description + (lastTransient ? ` (last transient error: ${lastTransient.message})` : ''));
 }
 try {
   context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium', headless: true, ignoreDefaultArgs: ['--disable-extensions'],
     args: ['--enable-unsafe-extension-debugging', '--disable-component-update', '--disable-background-networking'],
   });
-  context.setDefaultTimeout(15_000);
+  context.setDefaultTimeout(timeoutMs);
   await context.route('**/*', route => {
     const url = new URL(route.request().url());
     if (url.origin === 'https://music.apple.com') return route.fulfill({ contentType: 'text/html', body: fixture });
@@ -59,7 +70,7 @@ try {
     async function send(method, params = {}) {
       const messageId = ++sequence;
       return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => { cleanup(); reject(new Error('Popup CDP command timed out: ' + method)); }, 15_000);
+        const timer = setTimeout(() => { cleanup(); reject(new Error('Popup CDP command timed out: ' + method)); }, timeoutMs);
         const receive = event => {
           if (event.sessionId !== sessionId) return;
           const message = JSON.parse(event.message);
@@ -105,8 +116,26 @@ try {
       const tab = targetInfos.find(target => target.url === apple.url());
       assert.ok(tab);
       await cdp.send('Extensions.triggerAction', { id, targetId: tab.targetId });
-      const target = await until(async () => (await cdp.send('Target.getTargets')).targetInfos.find(target =>
-        target.type === 'other' && (!target.url || target.url.startsWith(`chrome-extension://${id}/popup.html`))), 'actual toolbar popup target');
+      const isToolbarPopup = target => {
+        if (target.type !== 'other' && target.type !== 'page') return false;
+        if (!target.url) return false;
+        try {
+          const url = new URL(target.url);
+          return url.protocol === 'chrome-extension:' && url.host === id &&
+            url.pathname === '/popup.html' && !url.searchParams.has('tab');
+        } catch {
+          return false;
+        }
+      };
+      let target;
+      try {
+        target = await until(async () => (await cdp.send('Target.getTargets')).targetInfos.find(isToolbarPopup),
+          'actual toolbar popup target');
+      } catch (error) {
+        const { targetInfos: diagnosticTargets } = await cdp.send('Target.getTargets');
+        throw new Error(`${error.message}; open targets: ` +
+          diagnosticTargets.map(target => `${target.type}:${target.url || '(blank)'}`).join(', '));
+      }
       activePopup = await attach(target.targetId);
     }
     await until(async () => {
@@ -115,7 +144,7 @@ try {
         state = await activePopup.evaluate(() => ({ document: performance.timeOrigin,
           title: document.querySelector('#status-title')?.textContent }));
       } catch (error) {
-        if (/Cannot find (?:default execution )?context|Execution context was destroyed|Inspected target navigated/.test(error.message)) return false;
+        if (/Cannot find (?:default execution )?context|Execution context was destroyed|Inspected target navigated|No session with given id|Session closed|Target closed/.test(error.message)) return false;
         throw error;
       }
       return state.document !== previousDocument && ['Ready to scan', 'Could not connect'].includes(state.title);
@@ -140,7 +169,10 @@ try {
     assert.equal((await apple.evaluate(() => window.requests)).length, 5);
     assert.deepEqual(await popup.evaluate(() => chrome.runtime.getManifest().permissions), ['activeTab', 'scripting']);
     assert.equal(await popup.evaluate(() => chrome.runtime.getManifest().version), version);
-    console.log(`PASS (${mode}): toolbar popup, real activeTab grant, MAIN injection, pagination and safe rendering`);
+    const audit = await popup.evaluate(auditAccessibility);
+    assert.deepEqual(audit.findings, [], `${mode} installed popup accessibility findings:\n${audit.findings.join('\n')}`);
+    assert.ok(audit.checkedControls > 0, 'installed popup must expose controls');
+    console.log(`PASS (${mode}): toolbar popup, real activeTab grant, MAIN injection, pagination, safe rendering and accessibility`);
   }
   for (const [scenario, title, message] of [
     ['unavailable', 'Could not connect', /MusicKit instance is unavailable/],
@@ -155,28 +187,57 @@ try {
   }
   console.log('PASS: unavailable MusicKit, unauthorised/expired session, changed response format, no partial results');
   const popup = await open('duplicates');
-  await apple.evaluate(() => { window.fixtureDelay = 1000; });
+  // A long in-page delay proves the popup does not wait for the request to finish.
+  await apple.evaluate(() => { window.fixtureDelay = 3000; });
   await popup.evaluate(() => document.querySelector('#scan').click());
+  await apple.waitForFunction(() => window.requests.some(path => path.includes('/tracks?')), null, { timeout: timeoutMs });
+  const cancelStarted = Date.now();
   await popup.evaluate(() => document.querySelector('#cancel').click());
   await until(() => popup.evaluate(() => document.querySelector('#status-title').textContent === 'Scan cancelled'), 'cancellation');
+  const cancelMs = Date.now() - cancelStarted;
+  assert.ok(cancelMs < 2000, `Cancellation took ${cancelMs}ms; it should not wait for the 3000ms request`);
   assert.equal(await popup.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 0);
+  assert.ok(await apple.evaluate(() => (window.abortedRequests || 0) > 0), 'v3 cancellation should abort the page request');
   await apple.evaluate(() => { window.fixtureDelay = 25; });
   await popup.evaluate(() => document.querySelector('#scan').click());
   await until(() => popup.evaluate(() => !document.querySelector('#scan').disabled), 'rescan');
   assert.equal(await popup.evaluate(() => document.querySelector('#status-title').textContent), 'Scan complete');
-  console.log('PASS: real extension cancellation and successful independent rescan');
-  const blocked = await open('duplicates');
-  await apple.goto('https://blocked.test/');
-  await blocked.evaluate(() => document.querySelector('#scan').click());
-  await until(() => blocked.evaluate(() => !document.querySelector('#scan').disabled), 'revoked injection failure');
-  assert.equal(await blocked.evaluate(() => document.querySelector('#status-title').textContent), 'Scan failed');
-  assert.match(await blocked.evaluate(() => document.querySelector('#status-detail').textContent), /could not access this tab/);
-  assert.equal(await blocked.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 0);
-  await blocked.close();
-  console.log('PASS: cross-origin navigation revokes activeTab; blocked injection shows an error without results');
+  console.log(`PASS: real extension cancellation settled in ${cancelMs}ms and a successful independent rescan followed`);
 
-  // Pop-out: the real toolbar popup opens a window pinned to the playlist tab.
-  activePopup = undefined;
+  // A failed rescan in the real extension keeps the completed result and badge.
+  const resilient = await open('duplicates');
+  await scan(resilient);
+  assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
+  await until(() => resilient.evaluate(() => chrome.action.getBadgeText({})).then(text => text === '1'), 'badge after completed scan');
+  await apple.evaluate(() => { window.scenario = 'malformed'; });
+  await resilient.evaluate(() => document.querySelector('#scan').click());
+  await until(() => resilient.evaluate(() => !document.querySelector('#scan').disabled), 'failed rescan');
+  assert.equal(await resilient.evaluate(() => document.querySelector('#status-title').textContent), 'Scan failed');
+  assert.match(await resilient.evaluate(() => document.querySelector('#status-detail').textContent), /Showing the last completed scan from/);
+  assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
+  assert.equal(await resilient.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: 1, 101, 245');
+  await until(() => resilient.evaluate(() => chrome.action.getBadgeText({})).then(text => text === '1'), 'badge after failed rescan');
+  await apple.evaluate(() => { window.scenario = 'duplicates'; });
+  await resilient.evaluate(() => document.querySelector('#scan').click());
+  await until(() => resilient.evaluate(() => !document.querySelector('#scan').disabled), 'recovered rescan');
+  assert.equal(await resilient.evaluate(() => document.querySelector('#status-title').textContent), 'Scan complete');
+  console.log('PASS: failed rescan preserves the last completed result, badge and Clear action');
+
+  // Reloading the real popup restores the completed scan from extension storage.
+  await resilient.reload();
+  await until(async () => {
+    try {
+      return await resilient.evaluate(() => document.querySelector('#status-title')?.textContent === 'Showing last scan');
+    } catch {
+      return false;
+    }
+  }, 'cached last scan after popup reload');
+  assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
+  await until(() => resilient.evaluate(() => chrome.action.getBadgeText({})).then(text => text === '1'), 'badge after cached restore');
+  console.log('PASS: real popup reload restores the cached completed scan and badge');
+
+  // Pop-out: reload the existing toolbar popup instead of closing and reopening
+  // the native Windows popup widget, which can race and leave no target behind.
   await apple.goto('https://music.apple.com/us/library/playlist/p.fixture');
   const popper = await open('duplicates');
   assert.equal(await popper.evaluate(() => document.querySelector('#pop-out').hidden), false);
@@ -194,6 +255,15 @@ try {
   assert.equal(await popped.evaluate(() => document.querySelector('#pop-out').hidden), true);
   await popped.close();
   console.log('PASS: pop-out window opens from the real toolbar popup and connects to the same tab');
+
+  const blocked = await open('duplicates');
+  await apple.goto('https://blocked.test/');
+  await blocked.evaluate(() => document.querySelector('#scan').click());
+  await until(() => blocked.evaluate(() => !document.querySelector('#scan').disabled), 'revoked injection failure');
+  assert.equal(await blocked.evaluate(() => document.querySelector('#status-title').textContent), 'Scan failed');
+  assert.match(await blocked.evaluate(() => document.querySelector('#status-detail').textContent), /could not access this tab/);
+  assert.equal(await blocked.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 0);
+  console.log('PASS: cross-origin navigation revokes activeTab; blocked injection shows an error without results');
 
   console.log('UNVERIFIED: live Apple Music, account/region variants, branded Chrome/Edge toolbar behavior');
 } finally {

@@ -48,6 +48,20 @@ test('transport cancellation is prompt and uses a separate uniquely scoped MAIN 
   setup(async () => [{ result: { ok: true, data: { name: 'New scan', total: 0, modified: null } } }]);
   assert.equal((await createBrowserSource(1, playlist).metadata()).name, 'New scan');
 });
+test('a synchronous cancellation-injection failure still cancels the transport', async () => {
+  const requests: Injection[] = [];
+  setup(request => {
+    requests.push(request);
+    if (request.func === cancelMusicKitRead) throw new Error('sync cancel failure');
+    return new Promise(() => {});
+  });
+  const controller = new AbortController();
+  const pending = createBrowserSource(1, playlist).page(0, controller.signal);
+  controller.abort();
+  await assert.rejects(pending, { code: 'CANCELLED' });
+  assert.equal(requests.length, 2);
+});
+
 test('a pre-cancelled transport does not inject', async () => {
   let calls = 0;
   setup(async () => { calls++; return []; });
@@ -82,6 +96,16 @@ test('localized injection errors use tab state instead of English message matchi
     async () => ({ id: 1, url: 'https://example.com/' }));
   await assert.rejects(createBrowserSource(1, playlist).metadata(), { code: 'TAB_ACCESS' });
   setup(async () => { throw new Error('localized message'); }, async () => { throw new Error('gone'); });
+  await assert.rejects(createBrowserSource(1, playlist).metadata(), { code: 'PAGE_CHANGED' });
+});
+
+test('synchronous scripting failures are classified like asynchronous rejections', async () => {
+  setup(() => { throw new Error('No tab with id: 7.'); });
+  await assert.rejects(createBrowserSource(1, playlist).metadata(), { code: 'PAGE_CHANGED' });
+  setup(() => { throw new Error('Zugriff auf diese Seite nicht möglich'); },
+    async () => ({ id: 1, url: 'https://music.apple.com/us/library/playlist/p.test' }));
+  await assert.rejects(createBrowserSource(1, playlist).metadata(), { code: 'TAB_ACCESS' });
+  setup(() => { throw new Error('localized message'); }, async () => { throw new Error('gone'); });
   await assert.rejects(createBrowserSource(1, playlist).metadata(), { code: 'PAGE_CHANGED' });
 });
 

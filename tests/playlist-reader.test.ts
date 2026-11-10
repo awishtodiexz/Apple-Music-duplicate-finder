@@ -35,9 +35,34 @@ test('50,000 entries retain order at the practical limit; huge reported totals f
   const result = await readPlaylist(sourceFor(scanLimits.maxTracks).source);
   assert.equal(result.tracks.length, 50_000);
   assert.equal(result.tracks.at(-1)?.position, 50_000);
+  // The same boundary is reachable when Apple supplies no total and the last
+  // page is followed by an empty probe.
+  const unknown = await readPlaylist(sourceFor(scanLimits.maxTracks, null).source);
+  assert.equal(unknown.tracks.length, 50_000);
+  assert.equal(unknown.countVerified, false);
   const { source, offsets } = sourceFor(1, 50_001);
   await assert.rejects(readPlaylist(source), { code: 'LIMIT' });
   assert.deepEqual(offsets, []);
+});
+test('page totals and the cumulative metadata budget are bounded on later pages', async () => {
+  const overTotal = sourceFor(1, null).source;
+  overTotal.page = async () => ({ tracks: entries(1), total: scanLimits.maxTracks + 1, nextOffset: null });
+  await assert.rejects(readPlaylist(overTotal), { code: 'LIMIT' });
+
+  const all: Track[] = Array.from({ length: 20 }, (_, index) => ({
+    position: index + 1, name: 'x'.repeat(10), artist: 'y'.repeat(10), catalogId: '1', libraryId: null,
+  }));
+  const offsets: number[] = [];
+  const source: PlaylistSource = {
+    metadata: async () => ({ ...info, total: null }),
+    page: async offset => {
+      offsets.push(offset);
+      return { tracks: all.slice(offset, offset + 10), total: null, nextOffset: offset === 0 ? 10 : null };
+    },
+  };
+  // 210 characters per page: one page is accepted, the second exceeds 300.
+  await assert.rejects(readPlaylist(source, undefined, { maxMetadataChars: 300 }), { code: 'LIMIT' });
+  assert.deepEqual(offsets, [0, 10]);
 });
 
 test('unknown totals, page exhaustion and metadata budgets cannot return truncated success', async () => {
@@ -115,7 +140,9 @@ test('a single retry does not abort a scan that can still finish', async () => {
       return { tracks: all.slice(offset, offset + 100), total, nextOffset: null };
     },
   };
-  const result = await readPlaylist(source, () => {}, { deadlineMs: 3_000 });
+  // Five seconds keeps this deterministic on a loaded CI machine; the test is
+  // about retry not triggering the projected-deadline abort, not about speed.
+  const result = await readPlaylist(source, () => {}, { deadlineMs: 5_000 });
   assert.equal(result.tracks.length, 5_000);
   assert.equal(calls, 51);
 });
@@ -328,6 +355,142 @@ test('permanent and internal failures are never retried', async () => {
     assert.equal(calls, 1);
   }
 });
+test('an empty page after a promised continuation is truncation, not exhaustion', async () => {
+  for (const pageSize of [100, 40]) {
+    // Lowering the total to the retrieved count must not legitimize the empty
+    // reply either; the previous page promised data that did not arrive.
+    for (const emptyTotal of [null, pageSize]) {
+      const all = entries(200);
+      const offsets: number[] = [];
+      const source: PlaylistSource = {
+        metadata: async () => ({ ...info, total: null }),
+        page: async offset => {
+          offsets.push(offset);
+          if (offset === 0) return { tracks: all.slice(0, pageSize), total: null, nextOffset: pageSize };
+          if (offset === pageSize) return { tracks: [], total: emptyTotal, nextOffset: null };
+          throw new Error(`unexpected offset ${offset}`);
+        },
+      };
+      await assert.rejects(readPlaylist(source), { code: 'INCOMPLETE' });
+      assert.deepEqual(offsets, [0, pageSize]);
+    }
+  }
+});
+test('an empty probe after a page without a continuation still marks exhaustion', async () => {
+  for (const length of [0, 40, 100]) {
+    const all = entries(length);
+    const offsets: number[] = [];
+    const source: PlaylistSource = {
+      metadata: async () => ({ ...info, total: null }),
+      page: async offset => {
+        offsets.push(offset);
+        return { tracks: all.slice(offset, offset + 100), total: null, nextOffset: null };
+      },
+    };
+    const result = await readPlaylist(source);
+    assert.equal(result.tracks.length, length);
+    assert.equal(result.countVerified, false);
+    assert.deepEqual(offsets, length === 0 ? [0] : [0, length]);
+  }
+  // An empty probe may also supply the total, which then verifies the count.
+  const all = entries(40);
+  const source: PlaylistSource = {
+    metadata: async () => ({ ...info, total: null }),
+    page: async offset => ({ tracks: all.slice(offset, offset + 100), total: offset === 40 ? 40 : null, nextOffset: null }),
+  };
+  const result = await readPlaylist(source);
+  assert.equal(result.tracks.length, 40);
+  assert.equal(result.countVerified, true);
+});
+test('a page can introduce a total the initial metadata omitted', async () => {
+  const all = entries(245);
+  const source: PlaylistSource = {
+    metadata: async () => ({ ...info, total: null }),
+    page: async offset => ({
+      tracks: all.slice(offset, offset + 100), total: offset >= 100 ? 245 : null, nextOffset: null,
+    }),
+  };
+  const result = await readPlaylist(source);
+  assert.equal(result.tracks.length, 245);
+  assert.equal(result.countVerified, true);
+});
+test('final metadata can establish the count when no earlier total was available', async () => {
+  const all = entries(30);
+  const run = async (finalTotal: number | null) => {
+    let calls = 0;
+    const source: PlaylistSource = {
+      metadata: async () => { calls++; return { ...info, total: calls === 1 ? null : finalTotal }; },
+      page: async offset => ({ tracks: all.slice(offset, offset + 100), total: null, nextOffset: null }),
+    };
+    return readPlaylist(source);
+  };
+  const result = await run(30);
+  assert.equal(result.tracks.length, 30);
+  assert.equal(result.countVerified, true);
+  await assert.rejects(run(31), { code: 'INCOMPLETE' });
+  assert.equal((await run(null)).countVerified, false);
+});
+test('losing or gaining a revision hash or modification marker invalidates the scan', async () => {
+  for (const stage of ['revisionLost', 'revisionAppears', 'modifiedLost', 'modifiedAppears']) {
+    const { source } = sourceFor(10);
+    let calls = 0;
+    source.metadata = async () => {
+      calls++;
+      const first = calls === 1;
+      return {
+        ...info, total: 10,
+        modified: stage === 'modifiedAppears' ? (first ? null : '2026-01-02') :
+          stage === 'modifiedLost' ? (first ? '2026-01-02' : null) : '2026-01-01',
+        revision: stage === 'revisionAppears' ? (first ? undefined : 'v2') :
+          stage === 'revisionLost' ? (first ? 'v1' : undefined) : undefined,
+      };
+    };
+    await assert.rejects(readPlaylist(source), { code: 'INCOMPLETE' });
+  }
+});
+test('marker availability is reported only when a marker was actually compared', async () => {
+  const markers = async (modified: string | null, revision?: string) => {
+    const { source } = sourceFor(5);
+    source.metadata = async () => ({ ...info, total: 5, modified, ...(revision ? { revision } : {}) });
+    return (await readPlaylist(source)).modificationChecked;
+  };
+  assert.equal(await markers(null), false);
+  assert.equal(await markers('2026-01-01'), true);
+  assert.equal(await markers(null, 'v1'), true);
+});
+test('cancellation outranks a permanent transport failure settling in the same turn', async () => {
+  const controller = new AbortController();
+  let fail!: (error: Error) => void;
+  let entered!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const source: PlaylistSource = {
+    metadata: async () => ({ ...info, total: 1 }),
+    page: () => new Promise((_resolve, reject) => { fail = reject; entered(); }),
+  };
+  const pending = readPlaylist(source, undefined, { signal: controller.signal });
+  await started;
+  fail(new ScanError('AUTH'));
+  controller.abort();
+  await assert.rejects(pending, { code: 'CANCELLED' });
+});
+test('cancellation and the deadline interrupt retry backoff instead of honoring retry-after', async t => {
+  for (const mode of ['cancel', 'deadline'] as const) {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+    const controller = new AbortController();
+    let calls = 0;
+    const source: PlaylistSource = {
+      metadata: async () => ({ ...info, total: 1 }),
+      page: async () => { calls++; throw new ScanError('RATE_LIMIT', { retryAfterMs: 60_000 }); },
+    };
+    const pending = readPlaylist(source, undefined, { ...(mode === 'cancel' ? { signal: controller.signal } : {}),
+      deadlineMs: 100 });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls, 1);
+    if (mode === 'cancel') controller.abort(); else t.mock.timers.tick(100);
+    await assert.rejects(pending, { code: mode === 'cancel' ? 'CANCELLED' : 'DEADLINE' });
+    t.mock.timers.reset();
+  }
+});
 test('final metadata failure and playlist changes invalidate all results', async () => {
   for (const change of ['failure', 'total', 'modified', 'name']) {
     const source = sourceFor(10).source;
@@ -342,4 +505,26 @@ test('final metadata failure and playlist changes invalidate all results', async
     };
     await assert.rejects(readPlaylist(source), { code: change === 'failure' ? 'AUTH' : 'INCOMPLETE' });
   }
+});
+
+test('cancellation during final metadata validation is immediate', async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  let entered!: () => void;
+  const waiting = new Promise<void>(resolve => { entered = resolve; });
+  const source: PlaylistSource = {
+    metadata: async () => {
+      calls++;
+      if (calls === 1) return { ...info, total: 1 };
+      entered();
+      return new Promise(() => {});
+    },
+    page: async () => ({ tracks: entries(1), total: 1, nextOffset: null }),
+  };
+  const pending = readPlaylist(source, undefined, { signal: controller.signal });
+  await waiting;
+  const started = Date.now();
+  controller.abort();
+  await assert.rejects(pending, { code: 'CANCELLED' });
+  assert.ok(Date.now() - started < 5_000, 'cancellation should not wait for the validation request');
 });

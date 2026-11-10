@@ -24,7 +24,11 @@ async function page(): Promise<TrackPage> {
 }
 test('accepts the three MusicKit response envelopes without exposing tokens', async () => {
   const body = { data: [song()], meta: { total: 1 }, secret: 'must not leave page' };
-  for (const response of [body, { json: body }, { data: body }]) {
+  const serialized = JSON.stringify(body);
+  for (const response of [body, { json: body }, { data: body },
+    new Response(serialized, { status: 200 }),
+    { json: new Response(serialized, { status: 200 }) },
+    { data: new Response(serialized, { status: 200 }) }]) {
     const { calls } = setup(() => response);
     const result = await page();
     assert.deepEqual(result.tracks[0], { position: 1, name: 'Numb', artist: 'Linkin Park', catalogId: '123', libraryId: 'i.same' });
@@ -113,6 +117,14 @@ test('metadata verifies the exact requested playlist ID and resource type', asyn
   setup(() => ({ data: [{ type: 'library-playlists', id: 'p.other', attributes: { name: 'Different' } }] }));
   assert.deepEqual(await musicKitBridge({ action: 'metadata', playlist }), { ok: false, code: 'FORMAT' });
 });
+test('meta and next may sit on the wrapper beside a nested data body', async () => {
+  setup(() => ({ data: { data: [song()] }, meta: { total: 2 },
+    next: '/v1/me/library/playlists/p.test/tracks?offset=1&limit=100' }));
+  const result = await page();
+  assert.equal(result.total, 2);
+  assert.equal(result.nextOffset, 1);
+});
+
 test('valid short-page next link is retained', async () => {
   setup(() => ({ data: [song()], next: '/v1/me/library/playlists/p.test/tracks?offset=1&limit=100', meta: { total: 2 } }));
   assert.equal((await page()).nextOffset, 1);
@@ -155,12 +167,46 @@ test('authentication, rate limits, API status and network failures return fixed 
   setup(() => ({}), { isAuthorized: false });
   assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'AUTH' });
 });
-test('MusicKit unavailable or unconfigured is an explicit blocker', async () => {
+test('MusicKit unavailable or unconfigured is an explicit blocker after a bounded wait', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const { win } = setup(() => ({}));
   Object.assign(win, { MusicKit: undefined });
   assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'MUSICKIT_UNAVAILABLE' });
   setup(() => ({}), { api: {} });
-  assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'MUSICKIT_UNAVAILABLE' });
+  const pending = musicKitBridge(request);
+  for (let step = 0; step < 20; step++) {
+    t.mock.timers.tick(100);
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.deepEqual(await pending, { ok: false, code: 'MUSICKIT_UNAVAILABLE' });
+});
+
+test('a briefly unavailable MusicKit instance is awaited during initialization', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0;
+  const { win } = setup(() => ({}));
+  Object.assign(win, { MusicKit: { getInstance: () => {
+    calls++;
+    return calls < 3 ? undefined :
+      { isAuthorized: true, api: { get: async () => ({ data: [] }) } };
+  } } });
+  const pending = musicKitBridge(request);
+  for (let step = 0; step < 3; step++) {
+    t.mock.timers.tick(100);
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.deepEqual(await pending, { ok: true, data: { tracks: [], total: null, nextOffset: null } });
+  assert.equal(calls, 3);
+});
+
+test('a page change during MusicKit initialization is not ignored', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { win } = setup(() => ({}));
+  Object.assign(win, { MusicKit: { getInstance: () => undefined } });
+  const pending = musicKitBridge(request);
+  win.location.pathname = '/us/browse';
+  t.mock.timers.tick(100);
+  assert.deepEqual(await pending, { ok: false, code: 'PAGE_CHANGED' });
 });
 test('navigation before and during a request invalidates it', async () => {
   let { win, calls } = setup(() => ({ data: [] }));
@@ -177,6 +223,23 @@ test('catalog routes use the same MusicKit integration, never a library-name sea
   assert.equal((await musicKitBridge({ action: 'tracks', playlist: catalog, offset: 0 })).ok, true);
   assert.equal(calls[0], '/v1/catalog/gb/playlists/pl.abc/tracks?limit=100&offset=0');
 });
+test('an invalid bridge action is rejected before any API call', async () => {
+  let calls = 0;
+  const { win } = setup(() => { calls++; return { data: [] }; });
+  win.location.pathname = '/us/library/playlist/p.test';
+  const invalid = { action: 'delete', playlist } as unknown as BridgeRequest;
+  assert.deepEqual(await musicKitBridge(invalid), { ok: false, code: 'FORMAT' });
+  assert.equal(calls, 0);
+});
+
+test('uppercase route storefronts normalize instead of falling back to the player', async () => {
+  const { win, calls } = setup(() => ({ data: [] }), { storefrontId: 'gb' });
+  const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const, storefront: 'US' };
+  win.location.pathname = '/US/playlist/mix/pl.abc';
+  assert.equal((await musicKitBridge({ action: 'tracks', playlist: catalog, offset: 0 })).ok, true);
+  assert.equal(calls[0], '/v1/catalog/us/playlists/pl.abc/tracks?limit=100&offset=0');
+});
+
 test('catalog routes prefer the visible storefront over the player storefront', async () => {
   const { win, calls } = setup(() => ({ data: [] }), { storefrontId: 'gb' });
   const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const, storefront: 'us' };
@@ -279,6 +342,14 @@ test('retry-after headers are bounded and never echoed to the page boundary', as
   assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'SERVER' });
   setup(() => ({ response: { status: 429, headers: new Headers({ 'retry-after': '5' }) }, data: { data: [] } }));
   assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'RATE_LIMIT', retryAfterMs: 5_000 });
+  setup(() => ({ json: { response: { status: 429, headers: new Headers({ 'retry-after': '2' }) }, data: [] } }));
+  assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'RATE_LIMIT', retryAfterMs: 2_000 });
+  setup(() => ({ data: { response: { status: 429, headers: new Headers({ 'retry-after': '1' }) }, data: [] } }));
+  assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'RATE_LIMIT', retryAfterMs: 1_000 });
+  setup(() => new Response(null, { status: 429, headers: new Headers({ 'retry-after': '3' }) }));
+  assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'RATE_LIMIT', retryAfterMs: 3_000 });
+  setup(() => new Response(JSON.stringify({ errors: [{ status: 401, detail: 'private' }] }), { status: 200 }));
+  assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'AUTH' });
 });
 test('numeric HTTP status takes precedence over generic MusicKit reasons', async () => {
   setup(() => { throw { reason: 'NETWORK_ERROR', data: { status: 429 } }; });
@@ -289,8 +360,13 @@ test('resolved MusicKit wrappers with failed HTTP status never become successful
     for (const response of [
       { response: { status }, data: { data: [] } },
       { response: new Response(null, { status }), json: { data: [] } },
-      { data: { status, data: [] } },
       { response: { status }, data: { data: [], errors: [{ detail: 'private' }] } },
+      { json: { response: { status }, data: [] } },
+      { data: { response: { status }, data: [] } },
+      { data: { status, data: [] } },
+      new Response(null, { status }),
+      { json: new Response(null, { status }) },
+      { data: new Response(null, { status }) },
     ]) {
       setup(() => response);
       assert.deepEqual(await musicKitBridge(request), { ok: false, code });
@@ -301,7 +377,172 @@ test('resolved MusicKit wrappers with failed HTTP status never become successful
   ] } }));
   assert.deepEqual(await musicKitBridge({ action: 'metadata', playlist }), { ok: false, code: 'AUTH' });
 });
-test('an unconfigured MusicKit API getter reports unavailable rather than a network failure', async () => {
+test('an unconfigured MusicKit API getter reports unavailable rather than a network failure', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   setup(() => ({}), { get api() { throw { reason: 'CONFIGURATION_ERROR' }; } });
-  assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'MUSICKIT_UNAVAILABLE' });
+  const pending = musicKitBridge(request);
+  for (let step = 0; step < 20; step++) {
+    t.mock.timers.tick(100);
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.deepEqual(await pending, { ok: false, code: 'MUSICKIT_UNAVAILABLE' });
+});
+
+test('a same-ID route change to another storefront invalidates the read', async () => {
+  const catalog = { ...playlist, id: 'pl.abc', kind: 'catalog' as const, storefront: 'us' };
+  const { win } = setup(() => {
+    // Apple's router can change the storefront segment without changing the ID.
+    win.location.pathname = '/gb/playlist/mix/pl.abc';
+    return { data: [] };
+  });
+  win.location.pathname = '/us/playlist/mix/pl.abc';
+  assert.deepEqual(await musicKitBridge({ action: 'tracks', playlist: catalog, offset: 0 }),
+    { ok: false, code: 'PAGE_CHANGED' });
+});
+
+test('the requested playlist ID must appear after the playlist route marker', async () => {
+  const { win } = setup(() => ({ data: [] }));
+  // The ID appears only before the marker; the real route names a different playlist.
+  win.location.pathname = '/p.test/playlist/library/p.other';
+  assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'PAGE_CHANGED' });
+});
+
+test('nested error arrays and response wrappers map to safe actionable codes', async () => {
+  for (const [error, code] of [
+    [{ data: [{ status: 401 }] }, 'AUTH'],
+    [{ response: [{ status: 429 }] }, 'RATE_LIMIT'],
+    [{ data: { response: { status: 503 } } }, 'SERVER'],
+    [{ response: { data: { status: 404 } } }, 'NOT_FOUND'],
+  ] as const) {
+    setup(() => { throw error; });
+    assert.deepEqual(await musicKitBridge(request), { ok: false, code });
+  }
+});
+
+test('hostile or malformed page error objects cannot escape the safe reply', async () => {
+  const cases: Array<[unknown, string]> = [
+    [{ status: Symbol('status') }, 'INTERNAL'],
+    [{ status: 429, response: { headers: { get: () => ({}) } } }, 'RATE_LIMIT'],
+    [{ get status() { throw new Error('private getter'); } }, 'INTERNAL'],
+    [{ status: 429, response: { get headers() { throw new Error('private getter'); } } }, 'RATE_LIMIT'],
+    [new Proxy({}, { get() { throw new Error('private proxy'); } }), 'INTERNAL'],
+  ];
+  for (const [error, code] of cases) {
+    setup(() => { throw error; });
+    const reply = await musicKitBridge(request);
+    assert.deepEqual(reply, { ok: false, code });
+    assert.equal(JSON.stringify(reply).includes('private'), false);
+  }
+});
+
+test('conflicting body and wrapper pagination evidence is rejected', async () => {
+  const next = '/v1/me/library/playlists/p.test/tracks?offset=1&limit=100';
+  const cases = [
+    // A lower body total must not hide a higher wrapper total.
+    { json: { data: [song()], meta: { total: 1 }, next: null }, meta: { total: 2 } },
+    // A body null must not hide a wrapper continuation link.
+    { json: { data: [song()], meta: { total: 1 }, next: null }, next },
+    // The reverse ordering is equally ambiguous.
+    { json: { data: [song()], meta: { total: 2 }, next: null }, meta: { total: 1 } },
+    { json: { data: [song()], next: null }, next },
+  ];
+  for (const response of cases) {
+    setup(() => response);
+    assert.deepEqual(await musicKitBridge(request), { ok: false, code: 'INCOMPLETE' });
+  }
+});
+
+test('raw response body consumption remains cancellable and aborts the fetch signal', async () => {
+  const target = new EventTarget();
+  let start!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  let signal: AbortSignal | undefined;
+  const { win } = setup(() => ({}), { api: { music: async (_path: string, _query: unknown,
+    options: { fetchOptions: { signal: AbortSignal } }) => {
+    signal = options.fetchOptions.signal;
+    return { status: 200, json: () => { start(); return new Promise(() => {}); } };
+  } } });
+  Object.assign(win, { addEventListener: target.addEventListener.bind(target),
+    removeEventListener: target.removeEventListener.bind(target),
+    dispatchEvent: target.dispatchEvent.bind(target) });
+  const requestId = '12345678-1234-1234-1234-123456789abc';
+  const pending = musicKitBridge({ ...request, requestId });
+  await started;
+  cancelMusicKitRead(requestId);
+  assert.deepEqual(await pending, { ok: false, code: 'CANCELLED' });
+  assert.equal(signal?.aborted, true);
+});
+
+test('an abort-rejecting raw body keeps the cancellation reason', async () => {
+  const target = new EventTarget();
+  let start!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  const { win } = setup(() => ({}), { api: { music: async (_path: string, _query: unknown,
+    options: { fetchOptions: { signal: AbortSignal } }) => {
+    const signal = options.fetchOptions.signal;
+    return { status: 200, json: () => {
+      start();
+      return new Promise((_, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+    } };
+  } } });
+  Object.assign(win, { addEventListener: target.addEventListener.bind(target),
+    removeEventListener: target.removeEventListener.bind(target),
+    dispatchEvent: target.dispatchEvent.bind(target) });
+  const requestId = '12345678-1234-1234-1234-123456789abc';
+  const pending = musicKitBridge({ ...request, requestId });
+  await started;
+  cancelMusicKitRead(requestId);
+  assert.deepEqual(await pending, { ok: false, code: 'CANCELLED' });
+});
+
+test('an abort-rejecting raw body keeps the timeout reason', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let start!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  setup(() => ({}), { api: { music: async (_path: string, _query: unknown,
+    options: { fetchOptions: { signal: AbortSignal } }) => {
+    const signal = options.fetchOptions.signal;
+    return { status: 200, json: () => {
+      start();
+      return new Promise((_, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      });
+    } };
+  } } });
+  const pending = musicKitBridge(request);
+  await started;
+  t.mock.timers.tick(25_000);
+  assert.deepEqual(await pending, { ok: false, code: 'TIMEOUT' });
+});
+
+test('raw response body consumption is bounded by the page timeout', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let start!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  let signal: AbortSignal | undefined;
+  setup(() => ({}), { api: { music: async (_path: string, _query: unknown,
+    options: { fetchOptions: { signal: AbortSignal } }) => {
+    signal = options.fetchOptions.signal;
+    return { status: 200, json: () => { start(); return new Promise(() => {}); } };
+  } } });
+  const pending = musicKitBridge(request);
+  await started;
+  t.mock.timers.tick(25_000);
+  assert.deepEqual(await pending, { ok: false, code: 'TIMEOUT' });
+  assert.equal(signal?.aborted, true);
+});
+
+test('raw response body consumption rechecks the route before success', async () => {
+  let start!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  let resolveBody!: (value: unknown) => void;
+  const { win } = setup(() => ({ status: 200,
+    json: () => { start(); return new Promise(resolve => { resolveBody = resolve; }); } }));
+  const pending = musicKitBridge(request);
+  await started;
+  win.location.pathname = '/us/library/playlist/p.other';
+  resolveBody({ data: [song()], meta: { total: 1 } });
+  assert.deepEqual(await pending, { ok: false, code: 'PAGE_CHANGED' });
 });

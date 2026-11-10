@@ -139,6 +139,10 @@ export async function readPlaylist(
     if (total !== null && total > maxTracks) throw new ScanError('LIMIT');
     progress('reading');
     let finished = false;
+    // A page with a continuation link promises another page. If that page then
+    // arrives empty without one, the playlist changed (or the reply was
+    // truncated) mid-scan; that is not evidence of exhaustion.
+    let continuationExpected = false;
     const recentPageMs: number[] = [];
     for (let pageNumber = 0; pageNumber < maxPages; pageNumber++) {
       const offset = tracks.length;
@@ -179,14 +183,20 @@ export async function readPlaylist(
       progress('reading');
       if (page.nextOffset !== null) {
         if (!page.tracks.length || page.nextOffset !== tracks.length || total === tracks.length) throw new ScanError('INCOMPLETE');
+        continuationExpected = true;
         continue;
       }
-      if (total !== null && tracks.length === total) { finished = true; break; }
       if (page.tracks.length === 0) {
         if (total !== null && total !== tracks.length) throw new ScanError('INCOMPLETE');
+        // A failure to deliver a page that the previous reply promised is a
+        // changed or truncated playlist, not a completed scan, even if the
+        // empty reply also lowers the reported total to the retrieved count.
+        if (continuationExpected) throw new ScanError('INCOMPLETE');
         finished = true;
         break;
       }
+      if (total !== null && tracks.length === total) { finished = true; break; }
+      continuationExpected = false;
       // Probe after short/full pages with no continuation or known terminal total.
     }
     if (!finished) throw new ScanError('LIMIT');
@@ -199,7 +209,9 @@ export async function readPlaylist(
     }
     return {
       info: after, tracks, countVerified: total !== null || after.total !== null,
-      modificationChecked: info.modified !== null || info.revision != null,
+      // Normalize absent values the same way the validation above does, so an
+      // omitted marker is reported as unavailable instead of checked.
+      modificationChecked: (after.modified ?? null) !== null || (after.revision ?? null) !== null,
     };
   } finally {
     clearTimeout(timer);

@@ -1,4 +1,4 @@
-# Testing
+﻿# Testing
 
 ## Automated checks
 
@@ -10,30 +10,35 @@ npm run check
 npm run audit
 ```
 
-`npm run benchmark` reports the reader, matcher, and CSV CPU cost for 1,000, 10,000, and 50,000 tracks. It does not simulate Apple network latency, so the reader deadline remains the authority for live scans.
+`npm run benchmark` samples reader/pagination, duplicate matching, CSV, filter/sort, retained heap and cancellation latency for 1,000, 10,000, and 50,000 tracks. It runs with `--expose-gc` for heap deltas, reports medians and ranges, and asserts deterministic counts plus a generous cancellation bound. It does not simulate Apple network latency, so the reader deadline remains the authority for live scans.
 
-The expanded suites contain **107 unit tests**, **56 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
+The expanded suites contain **161 unit tests**, **71 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
 
-- Exact identifier matching, missing/conflicting identifiers, original order, and 10,000-entry inputs.
-- Pagination beyond 100 entries, exact page boundaries, short pages, changing totals, and final metadata validation.
-- Legacy `api.get()` and v3 `api.music()` response shapes, timeouts, failed HTTP wrappers, errors after partial retrieval, and catalog storefront precedence.
-- Popup progress, recovery, safe text rendering, unknown-identity warnings, batches of results, and singular remaining-batch text.
+- Exact identifier matching, missing/conflicting identifiers, conflicting mappings, original order, and 10,000/50,000-entry inputs.
+- Pagination beyond 100 entries, exact page boundaries, short pages, changing totals, truncated continuation responses, and final metadata validation.
+- Legacy `api.get()` and v3 `api.music()` response shapes, raw/nested response envelopes, conflicting wrapper/body pagination evidence, cancellation/timeout/navigation and abort-rejecting bodies during raw body consumption, timeouts, failed HTTP wrappers, nested Retry-After values, errors after partial retrieval, and catalog storefront precedence.
+- Popup progress, recovery, safe text rendering, unknown-identity warnings, batches of results, singular remaining-batch text, long/mixed-script names, and bounded position expansion.
 - Search, sort, copy, CSV export, cached-last-scan restore and explicit clear, extra-copy counts, and collapsed position lists for very large duplicate groups.
 - Cached results paint before the player connects and stay visible when MusicKit is unavailable; the badge is cleared when the popup opens on a different playlist, and the first scan reuses the connection metadata.
-- Error-code diagnostics, retry-after propagation, internal-error classification, and localized tab-access handling through tab state.
+- Failed, cancelled, or mid-scan-close rescans keep the last completed result and badge clearly labelled; cache freshness compares every shared marker and the known total, and inconsistent cache data is rejected.
+- Existing v1.2.5 cache and theme keys remain readable without migration; only malformed cache data is rejected.
+- Error-code diagnostics, sanitized unexpected-error logging, retry-after propagation, internal-error classification, and localized tab-access handling through tab state.
 - Icon paths and dimensions, keyboard focus, and document scrolling down to 300 × 300 pixels in light and dark modes.
-- The theme control: Auto follows the emulated system scheme, Light and Dark override it, and an explicit choice survives a popup reload.
+- The theme control: Auto follows the emulated system scheme, Light and Dark override it, an explicit choice survives a popup reload, and forced-colors keeps block actions bounded.
 - The 50,000-entry boundary, metadata/page budgets, overall deadlines during metadata/pages/final validation, prompt cancellation, late replies, and independent concurrent scans.
 - Reordering, replacing, renaming, adding, and removing entries via changed metadata markers, and explicit unverified-consistency status when markers are absent.
-- Exact ZIP contents, version alignment, deterministic bytes, checksum validation, tampered-archive rejection, minimal permissions, CSP, and targeted credential-pattern checks.
+- Exact ZIP contents, version alignment, deterministic bytes, checksum validation, tampered-archive rejection, safe entry names, clean-rebuild byte equality, and rejection of unexpected build files.
+- Minimal permissions, CSP, safe-rendering/network invariants, CSV formula neutralization, and targeted current-file credential-pattern checks.
+- An in-page accessibility audit covering accessible names, form labels, ARIA references, duplicate IDs, heading order, explicit button types and WCAG text contrast in ready, results and error states in both themes.
+- Fixture network isolation (only the two controlled origins), a 25,000-group cached-scan restore with first-paint timing, and render timings for 1,200-group batching and 6,000-position expansion with generous bounds.
 
 Browser fixtures use mocked Apple Music responses and a Chrome API adapter. They exercise the bundled popup and serialized page function, but do not install the extension or test the toolbar's permission grant. Screenshots generated by the runner are saved in ignored `artifacts/`. The README image uses fictional demo data; it is not evidence of a real-account scan.
 
-`npm run test:extension` separately installs the actual unmodified production `dist/` extension into a fresh persistent Chromium profile. Chromium DevTools loads it and invokes its real toolbar action. The test attaches to the actual popup target, with no Chrome API adapter: it verifies denied injection before invocation, the `activeTab` grant, MAIN-world MusicKit communication, pagination and matching, expired authentication, changed API formats, cancellation/rescan, the pop-out window reconnecting to the originating tab, and revoked permissions after cross-origin navigation. All website responses are controlled fixtures; external page requests are blocked. The temporary profile is removed after the test.
+`npm run test:extension` separately installs the actual unmodified production `dist/` extension into a fresh persistent Chromium profile. Chromium DevTools loads it and invokes its real toolbar action. The test attaches to the actual popup target, with no Chrome API adapter: it verifies denied injection before invocation, the `activeTab` grant, MAIN-world MusicKit communication, pagination and matching, expired authentication, changed API formats, cancellation/rescan with a measured prompt-cancellation bound, the pop-out window reconnecting to the originating tab, and revoked permissions after cross-origin navigation. It also runs the accessibility audit on the installed popup. All website responses are controlled fixtures; external page requests are blocked. The temporary profile is removed after the test.
 
 The smoke suite opens one real toolbar popup and reloads its document between fixture scenarios, asserting a new document and cleared results before each scenario. This avoids a Windows native-widget close/reopen race in the test harness. It does not alter the production popup or prevent it from closing when focus is lost.
 
-CI runs typechecking and the unit suite on Node 22.8.0 and current Node 22/24/26 on Linux, and the complete `npm run check` (browser fixtures, installed-extension smoke, packaging and security) on Node 24 on Linux and Windows. The test runner compiles with the existing esbuild dependency and uses Node's default file isolation, without `--test-isolation` or tsx. Repository security settings are enabled for private vulnerability reporting, secret scanning with push protection, Dependabot alerts and security updates, CodeQL default setup, and required CI status checks on `main`. Fixture success does not prove full live Apple Music or branded-browser compatibility.
+CI runs typechecking and the unit suite on Node 22.8.0 and current Node 22/24/26 on Linux, and the complete `npm run check` (browser fixtures, installed-extension smoke, packaging and security) on Node 24 on Linux and Windows. The Node 24 Linux job and the Windows job also run `npm run benchmark`, which fails on deterministic count mismatches or a pathological cancellation delay but does not impose machine-specific timing thresholds. The test runner compiles with the existing esbuild dependency and uses Node's default file isolation, without `--test-isolation` or tsx. Repository security settings are enabled for private vulnerability reporting, secret scanning with push protection, Dependabot alerts and security updates, CodeQL default setup, and required CI status checks on `main`. Fixture success does not prove full live Apple Music or branded-browser compatibility.
 
 ### Local implementation verification (2026-10-27)
 
@@ -51,6 +56,20 @@ The follow-up suite is **107 unit tests** and **56 UI fixture scenarios**. It ad
 
 The manifest declares Chrome and Edge **111** as the compatibility floor. Automated browser coverage runs on Playwright's pinned Chromium **156.0.8078.4**; Chrome/Edge 111 remains a declared floor rather than an independently executed compatibility job. Live Apple Music, branded Edge, screen-reader speech, and additional account/region combinations still require manual verification.
 
+### Test and release-quality verification (2026-11-10)
+
+The suite is **161 unit tests** and **71 browser fixture scenarios**. The browser fixtures now include an in-page accessibility audit (accessible names, form labels, ARIA references, duplicate IDs, heading order, explicit button types and WCAG text contrast in ready/results/error states and both themes), a network-origin allowlist, and render timings. The installed-extension smoke suite runs the same accessibility audit against the real popup and measures prompt cancellation. Packaging now verifies safe ZIP entry names, a clean rebuild producing byte-identical archives, and rejection of unexpected `dist/` files.
+
+CPU benchmark on Windows with Node **26.12.1**, five samples per operation after warmup (`npm run benchmark`):
+
+| Tracks | Page calls | Read median | Match median | CSV median | Filter/sort median | Groups | Retained heap | Peak RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1,000 | 10 | 0.28 ms | 0.32 ms | 0.52 ms | 0.08 ms | 500 | +160.8 KiB | 54.09 MiB |
+| 10,000 | 100 | 1.79 ms | 1.90 ms | 4.12 ms | 0.66 ms | 5,000 | +1.41 MiB | 68.84 MiB |
+| 50,000 | 500 | 7.52 ms | 11.9 ms | 18.2 ms | 2.17 ms | 25,000 | +5.50 MiB | 136.58 MiB |
+
+Cancellation settled in a **0.07 ms median** (1.30 ms maximum across five runs; the assertion bound is 2,000 ms). The earlier single-sample baseline read/match/CSV values on this machine were 2/1/1 ms at 1,000 tracks, 3/6/5 ms at 10,000, and 11/43/56 ms at 50,000. The final harness adds warmup, five samples and memory instrumentation, and correctness/security changes touch the bridge, reader and CSV paths, so this is not a before/after optimization claim. Browser render samples were about 80–124 ms for 1,100 additional groups and 164–308 ms to restore a 25,000-group cached scan and paint the first 50; expanding 6,000 positions was effectively immediate in the click handler, with the bounded-layout and keyboard behavior verified separately. These are CPU/fixture measurements, not Apple network latency; machine-specific timings are not release thresholds.
+
 ## Manual checks
 
 Use a browser that permits unpacked extensions and your own Apple Music session. Record the browser and extension versions, expected counts, and results. Keep account details out of reports.
@@ -63,7 +82,9 @@ Use a browser that permits unpacked extensions and your own Apple Music session.
 | Scan more than 100 entries | All expected entries are retrieved; the count agrees when Apple supplies a total |
 | Browse a long results list | Every loaded result is reachable; Show more adds the next batch |
 | Retry after a connection failure | A successful retry displays fresh results; a failed scan accepts no partial results |
+| Fail or cancel a rescan after a completed scan | The completed results remain labelled as the previous scan, the badge is unchanged, and no partial new results appear |
 | Cancel while metadata or a track page is loading, then rescan | Immediate cancelled state, no partial results, and a fresh scan unaffected by a late reply |
+| Clear results while the popup is reconnecting to a cached scan | The cleared state stays cleared; a late metadata response does not resurrect a “Showing last scan” status |
 | Review a playlist without modification markers | The popup explicitly warns that same-count edits/reordering cannot be detected |
 | Close the popup and reopen it | An in-progress scan is discarded; the last completed scan is restored with its timestamp and can be cleared |
 | Use a keyboard and both color schemes | Controls and results are readable and reachable |

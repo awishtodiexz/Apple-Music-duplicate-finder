@@ -1,6 +1,6 @@
 {
   "name": "apple-music-duplicate-finder",
-  "version": "1.2.5",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "description": "Read-only, local duplicate detection for the current Apple Music playlist.",
@@ -24,7 +24,7 @@
     "test:package": "npm run package && node scripts/package-test.mjs",
     "check:security": "node scripts/security-test.mjs",
     "check:docs": "node scripts/check-docs.mjs",
-    "benchmark": "node scripts/benchmark.mjs",
+    "benchmark": "node --expose-gc scripts/benchmark.mjs",
     "audit": "npm audit --audit-level=high",
     "check": "npm run check:docs && npm run build && npm test && npm run test:browser && npm run test:extension && npm run test:package && npm run check:security"
   },

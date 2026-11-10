@@ -7,7 +7,7 @@
 <p align="center">Find repeated songs in your Apple Music playlists.</p>
 
 <p align="center">
-  <a href="https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.2.5/apple-music-duplicate-finder-v1.2.5.zip"><strong>Download v1.2.5</strong></a>
+  <a href="https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.3.0/apple-music-duplicate-finder-v1.3.0.zip"><strong>Download v1.3.0</strong></a>
   · <a href="#installation">Installation</a>
   · <a href="#privacy">Privacy</a>
 </p>
@@ -30,7 +30,7 @@ A free, open-source Chrome and Edge extension that shows which songs appear more
 - Read-only; it never edits, reorders, or deletes music.
 - Lets you cancel scans and enforces ten-minute, 50,000-entry, 2,000-page, and 16-million-character limits.
 - Search and sort repeated songs, filter by minimum copies, copy one song or the whole visible list, or download it as CSV.
-- Restores the last completed scan when the popup is reopened; **Clear** removes it, and a changed playlist is called out as stale.
+- Restores the last completed scan when the popup is reopened; **Clear** removes it, and a changed playlist is called out as stale. A failed or cancelled rescan keeps the last completed result visible and clearly labelled, while a completed valid scan replaces it. Updating from v1.2.5 preserves the theme choice and a valid cached last scan without migration.
 - **Open in a window** keeps the popup alive in its own window, so a scan is not lost when you click elsewhere.
 - Renders results in batches with keyboard focus and light/dark themes. The header theme control switches between Auto (follows your system), Light and Dark, and remembers the choice. The toolbar badge shows how many repeated songs the last scan found. Very large duplicate groups collapse long position lists until you expand them.
 
@@ -38,13 +38,13 @@ A free, open-source Chrome and Edge extension that shows which songs appear more
 
 Requires Chrome or Edge 111 or newer on desktop. This is a manual unpacked extension; it is not published on the Chrome Web Store.
 
-1. [Download the v1.2.5 ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.2.5/apple-music-duplicate-finder-v1.2.5.zip) and extract it into a folder you intend to keep.
+1. [Download the v1.3.0 ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.3.0/apple-music-duplicate-finder-v1.3.0.zip) and extract it into a folder you intend to keep.
 2. Open `chrome://extensions` in Chrome or `edge://extensions` in Edge.
 3. Enable **Developer mode**, then choose **Load unpacked**.
 4. Select the extracted folder containing `manifest.json`.
 5. Pin the extension to your toolbar for easy access.
 
-No development tools are needed. On the [release page](../../releases/latest), choose `apple-music-duplicate-finder-v1.2.5.zip`; GitHub's *Source code* archives require building first. The release also includes a `.sha256` checksum; see [release verification](docs/RELEASING.md#verify-a-download). Some managed browsers block unpacked extensions.
+No development tools are needed. On the [release page](../../releases/latest), choose `apple-music-duplicate-finder-v1.3.0.zip`; GitHub's *Source code* archives require building first. The release also includes a `.sha256` checksum; see [release verification](docs/RELEASING.md#verify-a-download). Some managed browsers block unpacked extensions.
 
 **To update:** extract the latest extension ZIP over the same folder, then click **Reload** on the Extensions page. Updates are manual.
 
@@ -54,7 +54,7 @@ No development tools are needed. On the [release page](../../releases/latest), c
 2. Open the extension and check the **Current playlist** name.
 3. Click **Scan for Duplicates** and keep the popup open until it finishes.
 
-Use **Cancel scan** to stop and start again. Cancelled, timed-out, failed, or resource-limited scans discard their results. Scans are limited to ten minutes, 50,000 entries, 2,000 pages, and 16 million metadata characters. The deadline is wall-clock, and 50,000 entries means 500 sequential 100-entry requests, so a slow connection reaches the ten-minute limit before the entry limit. A scan that is clearly too slow to finish stops early with the same deadline message instead of holding the popup for the full ten minutes.
+Use **Cancel scan** to stop and start again. Cancelled, timed-out, failed, or resource-limited rescans discard the new attempt and never accept partial results. If a previous completed scan exists, it stays visible and labelled as the previous result. Scans are limited to ten minutes, 50,000 entries, 2,000 pages, and 16 million metadata characters. The deadline is wall-clock, and 50,000 entries means 500 sequential 100-entry requests, so a slow connection reaches the ten-minute limit before the entry limit. A scan that is clearly too slow to finish stops early with the same deadline message instead of holding the popup for the full ten minutes.
 
 **“This song appears twice”** at **positions 12 and 84** means it is listed at number 12 and again at number 84. You can review those entries in Apple Music and remove unwanted ones yourself. Rescan after changing the playlist.
 
@@ -86,6 +86,8 @@ Live-tested on Chrome with a roughly 1,200-song playlist in October 2026: the sc
 
 The only network requests are read-only Apple Music API calls made through the open page's existing session. There is no separate extension account. [How it works](docs/ARCHITECTURE.md).
 
+The [previous v1.2.5 release](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.5) and its [published ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.2.5/apple-music-duplicate-finder-v1.2.5.zip) remain unchanged.
+
 ## Build from source
 
 Supports Node.js 22 (22.8+), 24, and 26 with npm; use a current patched release. Browser tests use Playwright's pinned Chromium; see [development instructions](docs/DEVELOPMENT.md).
@@ -97,7 +99,7 @@ npm run check
 npm run audit
 ```
 
-Load `dist/` as an unpacked extension. The checks generate `artifacts/apple-music-duplicate-finder-v1.2.5.zip` and its `.zip.sha256` checksum. Download both files from the release if you want to verify the installation ZIP; see [release verification](docs/RELEASING.md#verify-a-download).
+Load `dist/` as an unpacked extension. The checks generate `artifacts/apple-music-duplicate-finder-v1.3.0.zip` and its `.zip.sha256` checksum. Download both files from the release if you want to verify the installation ZIP; see [release verification](docs/RELEASING.md#verify-a-download).
 
 `npm run check` includes docs/version consistency, type checks, unit tests, browser fixtures, an installed-extension smoke test, deterministic ZIP/checksum checks, and static security checks. These controlled tests do not establish full compatibility with the live Apple Music service.
 

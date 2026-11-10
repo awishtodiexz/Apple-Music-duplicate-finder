@@ -1,6 +1,41 @@
 # Changelog
 
-## [Unreleased]
+## [1.3.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.3.0) (2026-11-10)
+
+Quality and compatibility release. This integrates six coordinated improvement areas: MusicKit compatibility, scan accuracy, UI/accessibility, results/caching lifecycle, security/privacy, and testing/performance. Permissions and the read-only model are unchanged. Existing v1.2.5 theme choices and valid cached scans remain readable without migration.
+
+### Added
+
+- Catalog-playlist scanning with the visible storefront, and rejection of a same-ID route change to another storefront.
+- A bounded MusicKit readiness wait, raw/nested response-envelope support, nested Retry-After handling, and explicit rejection of malformed bridge requests.
+- Cache freshness now compares every marker available on both sides plus the known track total; a differing revision hash marks the result stale even when the modification date matches.
+- Failed, cancelled, or mid-scan-close rescans keep the last completed result, Clear action and toolbar badge visible, labelled explicitly as the previous completed scan.
+- Accessibility and presentation improvements: wrapped result counts, bounded expandable position lists with focus retention and ARIA state, automatic text direction for names, omitted empty artist lines, themed placeholder contrast, forced-colors button boundaries, and outlined result actions.
+- A dependency-free in-page accessibility audit, fixture network-origin allowlist, render/restore measurements, and a benchmark covering reader/pagination, matching, CSV, filter/sort, retained heap and cancellation.
+- Clean-rebuild ZIP reproducibility, ZIP entry-name validation, and rejection of unexpected build files.
+
+### Changed
+
+- An empty page immediately after a promised continuation now fails as truncated/incomplete instead of completing successfully.
+- Cache validation enforces one ascending unique position per copy, unique identities, total/copy bounds, valid playlist IDs/timestamps, bounded text and notes; corrupt entries are discarded.
+- CSV formula neutralization now covers leading whitespace, control/format characters, Unicode separators, BOM, fullwidth triggers and U+2212.
+- Cross-context replies and track entries must be plain records; the bridge rejects unknown actions, invalid playlist kinds, overlong IDs and non-array error envelopes.
+- Wrapper and body pagination evidence must agree; conflicting totals or continuation links fail as incomplete instead of allowing a shorter body to hide more entries.
+- Raw response body consumption stays inside the cancellation, timeout and route guards, the visible route is checked again after parsing, and an abort-rejecting body preserves the cancellation/timeout reason instead of becoming a generic format error.
+- Unexpected error logging records a stable error label rather than provider text or raw thrown values.
+- The v1.2.5 theme key and last-scan cache key/schema remain unchanged; valid v1.2.5 caches load without migration, while malformed entries are rejected.
+- The CI workflow runs the benchmark on the Node 24 Linux and Windows jobs.
+
+### Fixed
+
+- A failed or cancelled rescan no longer erases the visible last successful result or badge.
+- Copy and CSV keep the cached playlist name when MusicKit is unavailable.
+- Clearing results during the initial connection can no longer resurrect a “Showing last scan” status.
+- Search/filter changes no longer write a duplicate live-region message.
+- Expanding a very large position list no longer drops keyboard focus or grows the document by thousands of pixels.
+- The footer separator hides with **Open in a window**, and the results title no longer clips at compact widths.
+- Synchronous scripting and cancellation-injection failures are classified like asynchronous failures.
+- The benchmark/test harness is less prone to load-related waits, and the installed-extension popup target detection is more precise.
 
 ## [1.2.5](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.5) (2026-11-08)
 
