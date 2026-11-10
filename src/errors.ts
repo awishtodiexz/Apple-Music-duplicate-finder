@@ -39,8 +39,26 @@ const offline = 'The extension could not access this tab. Open an Apple Music pl
 const tabAccessPattern = /Cannot access contents|must request permission|The extensions gallery/i;
 
 function detailOf(error: unknown): string {
-  return typeof (error as { message?: unknown })?.message === 'string' ?
-    (error as { message: string }).message : '';
+  try {
+    const message = (error as { message?: unknown })?.message;
+    return typeof message === 'string' ? message : '';
+  } catch {
+    return '';
+  }
+}
+
+/** Log a stable label only; provider text and thrown values can contain private data. */
+function safeErrorLabel(error: unknown): string {
+  try {
+    if (error instanceof Error) return error.name || 'Error';
+    if (error !== null && typeof error === 'object') {
+      const name = (error as { name?: unknown }).name;
+      if (typeof name === 'string') return /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(name) ? name : 'UnknownError';
+    }
+    return typeof error;
+  } catch {
+    return 'UnknownError';
+  }
 }
 
 export function errorMessage(error: unknown): string {
@@ -48,7 +66,7 @@ export function errorMessage(error: unknown): string {
     if (error.code === 'INTERNAL') console.error('[amdf] internal failure');
     return messages[error.code];
   }
-  console.error('[amdf] unexpected failure', error);
+  console.error('[amdf] unexpected failure', safeErrorLabel(error));
   return tabAccessPattern.test(detailOf(error)) ? offline : unexpected;
 }
 

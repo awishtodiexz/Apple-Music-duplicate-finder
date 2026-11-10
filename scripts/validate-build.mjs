@@ -11,21 +11,51 @@ export async function validateBuild() {
   const pkg = JSON.parse(await readFile('package.json', 'utf8'));
   const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
   assert.equal(manifest.manifest_version, 3);
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/, 'manifest version must be semver');
   assert.equal(manifest.version, pkg.version);
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
+  assert.equal(manifest.name, 'Apple Music Duplicate Finder');
+  assert.ok(manifest.name.length <= 75, 'manifest name exceeds the Chrome limit');
+  assert.ok(manifest.description.length <= 132, 'manifest description exceeds the Chrome limit');
+  assert.equal(manifest.minimum_chrome_version, '111');
+  assert.equal(manifest.action.default_title, 'Apple Music Duplicate Finder');
   assert.deepEqual(manifest.permissions, ['activeTab', 'scripting']);
   for (const key of ['host_permissions', 'optional_host_permissions', 'optional_permissions', 'content_scripts',
-    'background', 'externally_connectable', 'web_accessible_resources', 'side_panel']) assert.equal(manifest[key], undefined, key);
+    'background', 'externally_connectable', 'web_accessible_resources', 'side_panel', 'update_url', 'key',
+    'commands', 'chrome_url_overrides', 'options_ui', 'devtools_page', 'declarative_net_request',
+    'sandbox', 'oauth2', 'requirements']) {
+    assert.equal(manifest[key], undefined, key);
+  }
   assert.equal(manifest.action.default_popup, 'popup.html');
+  assert.deepEqual(Object.keys(manifest.icons).sort(), ['128', '16', '32', '48']);
+  assert.deepEqual(Object.keys(manifest.action.default_icon).sort(), ['128', '16', '32', '48']);
   assert.equal(manifest.content_security_policy.extension_pages,
     "default-src 'self'; script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'");
+  assert.equal(manifest.content_security_policy.sandbox, undefined, 'sandbox CSP');
   const html = await readFile('dist/popup.html', 'utf8');
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<meta charset="UTF-8">/);
+  assert.match(html, /<meta name="viewport"/);
   assert.equal((html.match(/<script\b/g) || []).length, 1);
+  assert.equal((html.match(/<link\b/g) || []).length, 1);
+  assert.match(html, /<link rel="stylesheet" href="popup\.css">/);
   assert.match(html, /<script type="module" src="popup\.js"><\/script>/);
+  // The popup must not load remote content, inline scripts, or inline handlers.
+  assert.doesNotMatch(html, /https?:\/\//);
+  assert.doesNotMatch(html, /<base\b/i);
+  assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
+  const css = await readFile('dist/popup.css', 'utf8');
+  assert.doesNotMatch(css, /@import\b|url\(\s*['"]?https?:/i, 'CSS must not load remote content');
   const js = await readFile('dist/popup.js', 'utf8');
   // Guard privacy and code-execution invariants in the production bundle.
-  assert.doesNotMatch(js, /\b(?:eval|fetch|XMLHttpRequest|WebSocket|sendBeacon)\s*\(|\bnew\s+Function\b|\.innerHTML\s*=|\.outerHTML\s*=|chrome\.(?:cookies|storage|webRequest|sidePanel)\b/);
+  assert.doesNotMatch(js, /\b(?:eval|fetch|XMLHttpRequest|WebSocket|sendBeacon)\s*\(|\bnew\s+Function\b|\.innerHTML\s*=|\.outerHTML\s*=|\.insertAdjacentHTML\s*\(|\bdocument\.write(?:ln)?\s*\(|\bDOMParser\b|\bpostMessage\b|\bjavascript:|\bdata:text\/html|\bchrome\.(?:cookies|storage|webRequest|identity|sidePanel)\b/);
+  assert.doesNotMatch(js, /sourceMappingURL|sourceURL/, 'production bundle must not ship source references');
+  // The only remote origins allowed in the bundle are Apple Music's page/API.
+  assert.doesNotMatch(js.replace(/https:\/\/(?:(?:amp-)?api\.)?music\.apple\.com/g, ''), /https?:\/\//,
+    'production bundle must not reference other remote origins');
+  const jsBytes = Buffer.byteLength(js);
+  assert.ok(jsBytes < 128 * 1024, `popup.js is unexpectedly large (${jsBytes} bytes)`);
   for (const size of [16, 32, 48, 128]) {
     const file = `icon-${size}.png`;
     assert.equal(manifest.icons[size], file);

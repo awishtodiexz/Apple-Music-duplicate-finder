@@ -72,3 +72,8 @@ test('CSV filenames are stable and filesystem-safe', () => {
   assert.equal(csvFilename('', new Date('2026-11-08T00:00:00Z')),
     'apple-music-duplicates-playlist-2026-11-08.csv');
 });
+
+test('long playlist names are truncated before the date suffix', () => {
+  assert.equal(csvFilename('A'.repeat(100), new Date('2026-11-08T00:00:00Z')),
+    `apple-music-duplicates-${'A'.repeat(60)}-2026-11-08.csv`);
+});

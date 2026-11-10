@@ -1,4 +1,4 @@
-Apple Music Duplicate Finder v1.2.5 — Chromium Extension
+Apple Music Duplicate Finder v1.3.0 — Chromium Extension
 Requires Chrome or Edge 111 or newer.
 
 INSTALL

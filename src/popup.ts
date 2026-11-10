@@ -33,6 +33,7 @@ const downloadResults = element<HTMLButtonElement>('download-results');
 const clearResults = element<HTMLButtonElement>('clear-results');
 const resetFilters = element<HTMLButtonElement>('reset-filters');
 const popOut = element<HTMLButtonElement>('pop-out');
+const popoutSeparator = element('popout-separator');
 const statusAnnouncer = element('status-announcer');
 const resultsAnnouncer = element('results-announcer');
 const resultsFeedback = element('results-feedback');
@@ -43,6 +44,20 @@ const numberFormat = new Intl.NumberFormat();
 const number = (value: number): string => numberFormat.format(value);
 const batchSize = 50;
 const maxInlinePositions = 50;
+/**
+ * The last fully completed scan. It stays in memory so a failed or cancelled
+ * rescan can restore valid results (and the badge) instead of erasing them.
+ */
+interface CompletedScan {
+  playlistName: string;
+  scannedAt: number;
+  groups: DuplicateGroup[];
+  totalTracks: number;
+  unidentified: number;
+  notes: string;
+  cached: boolean;
+}
+let lastCompleted: CompletedScan | null = null;
 let source: PlaylistSource | null = null;
 // Fetched while connecting; reused once so the first scan skips a round trip.
 let pendingInfo: PlaylistInfo | null = null;
@@ -111,6 +126,8 @@ function updatePopOut(): void {
   // abort that scan before the new window could adopt the results.
   popOut.hidden = !(connectedTabId !== null && !busy && pinnedTabId() === null &&
     typeof chrome.windows?.create === 'function');
+  // The footer separator belongs to the button; a popped-out window has neither.
+  popoutSeparator.hidden = popOut.hidden;
 }
 
 popOut.addEventListener('click', () => {
@@ -175,18 +192,25 @@ function currentGroups(): DuplicateGroup[] {
 function appendGroup(group: DuplicateGroup): void {
   const item = document.createElement('li');
   item.tabIndex = -1;
-  const fields = [
-    ['song', group.name],
-    ['artist', group.artist],
-    ['counts', group.copies === 2 ? 'This song appears twice' : `This song appears ${number(group.copies)} times`],
-  ];
-  for (const [className, value] of fields) {
-    const p = document.createElement('p');
-    p.className = className!;
-    // API-provided text is always text, never HTML.
-    p.textContent = value!;
-    item.append(p);
+  const song = document.createElement('p');
+  song.className = 'song';
+  // Let each name own its text direction; mixed-script titles then read in the
+  // right order instead of inheriting the popup's left-to-right paragraph.
+  song.dir = 'auto';
+  // API-provided text is always text, never HTML.
+  song.textContent = group.name;
+  item.append(song);
+  if (group.artist.trim()) {
+    const artist = document.createElement('p');
+    artist.className = 'artist';
+    artist.dir = 'auto';
+    artist.textContent = group.artist;
+    item.append(artist);
   }
+  const counts = document.createElement('p');
+  counts.className = 'counts';
+  counts.textContent = group.copies === 2 ? 'This song appears twice' : `This song appears ${number(group.copies)} times`;
+  item.append(counts);
   const positions = document.createElement('p');
   positions.className = 'positions';
   const inline = group.positions.slice(0, maxInlinePositions);
@@ -198,10 +222,29 @@ function appendGroup(group: DuplicateGroup): void {
     const showAll = document.createElement('button');
     showAll.type = 'button';
     showAll.className = 'more-positions';
+    showAll.setAttribute('aria-expanded', 'false');
+    const collapsedText = positions.textContent;
+    const allText = `Playlist positions: ${group.positions.map(number).join(', ')}`;
+    const groupLabel = group.artist.trim() ? `${group.name} by ${group.artist}` : group.name;
     showAll.textContent = `Show all ${number(group.positions.length)} positions`;
     showAll.addEventListener('click', () => {
-      positions.textContent = `Playlist positions: ${group.positions.map(number).join(', ')}`;
-      showAll.remove();
+      const expanded = showAll.getAttribute('aria-expanded') !== 'true';
+      showAll.setAttribute('aria-expanded', String(expanded));
+      showAll.textContent = expanded ? 'Show fewer positions' : `Show all ${number(group.positions.length)} positions`;
+      positions.textContent = expanded ? allText : collapsedText;
+      if (expanded) {
+        // Thousands of positions stay inside a short scroll area, and the
+        // toggle keeps focus so a keyboard user can collapse it again.
+        positions.tabIndex = 0;
+        positions.setAttribute('role', 'group');
+        positions.setAttribute('aria-label', `All playlist positions for ${groupLabel}`);
+        positions.setAttribute('data-expanded', 'true');
+      } else {
+        positions.removeAttribute('tabindex');
+        positions.removeAttribute('role');
+        positions.removeAttribute('aria-label');
+        positions.removeAttribute('data-expanded');
+      }
     });
     item.append(showAll);
   }
@@ -209,7 +252,8 @@ function appendGroup(group: DuplicateGroup): void {
   copyGroup.type = 'button';
   copyGroup.className = 'copy-group';
   copyGroup.textContent = 'Copy';
-  copyGroup.setAttribute('aria-label', `Copy ${group.name} by ${group.artist}`);
+  copyGroup.setAttribute('aria-label', group.artist.trim() ?
+    `Copy ${group.name} by ${group.artist}` : `Copy ${group.name}`);
   copyGroup.addEventListener('click', async () => {
     if (await copyText(formatGroupText(group))) {
       resultsFeedback.textContent = `Copied ${group.name}.`;
@@ -223,11 +267,23 @@ function appendGroup(group: DuplicateGroup): void {
 
 function updateResultsTitle(): void {
   const title = element('results-title');
-  const matching = resultsSearch.value.trim() ?
-    ` · ${number(visible.length)} of ${number(groups.length)} matching` : '';
-  title.textContent = displayed < visible.length ?
-    `Repeated songs · ${number(displayed)} of ${number(visible.length)} shown${matching}` :
-    `Repeated songs${matching}`;
+  const query = resultsSearch.value.trim();
+  const minCopies = Number(resultsMin.value) || 2;
+  const batching = displayed < visible.length;
+  const count = number(visible.length);
+  let text: string;
+  if (query) {
+    text = `Repeated songs · ${count} of ${number(groups.length)} matching`;
+    if (batching) text += ` · ${number(displayed)} shown`;
+  } else if (minCopies > 2) {
+    text = `Repeated songs · ${count} of ${number(groups.length)}`;
+    if (batching) text += ` · ${number(displayed)} shown`;
+  } else {
+    text = batching ?
+      `Repeated songs · ${number(displayed)} of ${count} shown` :
+      `Repeated songs · ${count}`;
+  }
+  if (title.textContent !== text) title.textContent = text;
 }
 
 function appendBatch(): void {
@@ -266,17 +322,32 @@ function announceResults(): void {
   }, 500);
 }
 
-function restoreCached(cached: CachedScan): void {
-  groups = cached.groups;
-  totalTracks = cached.totalTracks;
-  unidentified = cached.unidentified;
-  scanNotes = cached.notes;
+/** Paint one completed scan. Only a completed scan ever reaches this function. */
+function applyCompleted(completed: CompletedScan): void {
+  lastCompleted = completed;
+  currentPlaylistName = completed.playlistName;
+  groups = completed.groups;
+  totalTracks = completed.totalTracks;
+  unidentified = completed.unidentified;
+  scanNotes = completed.notes;
+  hasScanResult = true;
   notes.textContent = scanNotes;
   notes.hidden = !scanNotes;
-  hasScanResult = true;
-  setBadge(cached.groups.length);
+  setBadge(groups.length);
   renderResults();
   clearResults.hidden = false;
+}
+
+function restoreCached(cached: CachedScan): void {
+  applyCompleted({
+    playlistName: cached.playlistName,
+    scannedAt: cached.scannedAt,
+    groups: cached.groups,
+    totalTracks: cached.totalTracks,
+    unidentified: cached.unidentified,
+    notes: cached.notes,
+    cached: true,
+  });
 }
 
 function formatDate(timestamp: number): string {
@@ -285,12 +356,21 @@ function formatDate(timestamp: number): string {
   });
 }
 
-function cacheCurrent(playlist: PlaylistRef, info: PlaylistInfo, countVerified: boolean, modificationChecked: boolean): boolean {
+/** Explains that results on screen are the previous completed scan, never the failed one. */
+function lastCompletedNotice(completed: CompletedScan): string {
+  const persistence = completed.cached ? '' :
+    '\nThese results are too large to remember after the popup closes; use Copy or CSV if you need them.';
+  return `Showing the last completed scan from ${formatDate(completed.scannedAt)}.${persistence}\n` +
+    summaryLine(summarize(completed.totalTracks, completed.groups, completed.unidentified));
+}
+
+function cacheCurrent(playlist: PlaylistRef, info: PlaylistInfo, countVerified: boolean,
+  modificationChecked: boolean, scannedAt: number): boolean {
   const cached: CachedScan = {
     version: 1,
     playlistId: playlist.id,
     playlistName: info.name,
-    scannedAt: Date.now(),
+    scannedAt,
     groups,
     unidentified,
     totalTracks,
@@ -348,6 +428,11 @@ async function initialize(): Promise<void> {
   busy = true;
   scanFailed = false;
   hasScanResult = false;
+  // A new connection may target a different playlist; never carry the previous
+  // playlist's results into it. A cache for this playlist is restored below.
+  lastCompleted = null;
+  currentPlaylistName = '';
+  clearGroups();
   source = null;
   currentPlaylist = null;
   pendingInfo = null;
@@ -393,17 +478,19 @@ async function initialize(): Promise<void> {
       currentPlaylistName = info.name;
       playlistName.textContent = info.name;
       playlistName.title = info.name;
-      if (cached) {
+      if (cached && lastCompleted) {
         const fresh = cacheFreshness(cached, info);
         setStatus('Showing last scan', fresh === 'changed' ?
           `${cachedStatus(cached)} The playlist changed since this scan. Scan again to refresh.` :
           `${cachedStatus(cached)} Rescan to refresh.`);
       } else {
+        // No cache, or the user cleared it while this connection was in flight:
+        // neither case may claim to be showing a cached scan.
         setStatus('Ready to scan', 'Find songs listed more than once. Keep this popup open while scanning.');
       }
     } catch (error) {
       // Keep the cached results and explain why they cannot be refreshed.
-      if (!cached) throw error;
+      if (!cached || !lastCompleted) throw error;
       setStatus('Showing last scan', `${cachedStatus(cached)} ${errorMessage(error)}`, false, errorCode(error));
     }
   } catch (error) {
@@ -430,15 +517,11 @@ showMore.addEventListener('click', () => {
 cancel.addEventListener('click', () => scanController?.abort());
 window.addEventListener('pagehide', () => scanController?.abort());
 
-resultsSearch.addEventListener('input', () => {
-  renderResults();
-  resultsFeedback.textContent = visible.length ? '' : 'No matching songs.';
-});
+// The debounced results announcer already reports the filtered count; writing
+// a second live status message here would announce every filter twice.
+resultsSearch.addEventListener('input', renderResults);
 resultsSort.addEventListener('change', renderResults);
-resultsMin.addEventListener('change', () => {
-  renderResults();
-  resultsFeedback.textContent = visible.length ? '' : 'No matching songs.';
-});
+resultsMin.addEventListener('change', renderResults);
 
 resetFilters.addEventListener('click', () => {
   resultsSearch.value = '';
@@ -487,6 +570,7 @@ downloadResults.addEventListener('click', () => {
 
 clearResults.addEventListener('click', () => {
   clearCachedScan();
+  lastCompleted = null;
   hasScanResult = false;
   clearGroups();
   setBadge(null);
@@ -509,7 +593,8 @@ scan.addEventListener('click', async () => {
   cancel.hidden = false;
   scan.disabled = true;
   scan.textContent = 'Scanning…';
-  setBadge(null);
+  // The badge describes the last completed scan; keep it until a new completed
+  // scan replaces it, so closing or failing this scan cannot erase an accurate badge.
   clearGroups();
   progress.hidden = false;
   progress.removeAttribute('value');
@@ -542,22 +627,38 @@ scan.addEventListener('click', async () => {
     const notesText = (coverage + verification + consistency).trim();
     scanNotes = notesText;
     const hasGroups = duplicates.groups.length > 0;
+    const scannedAt = Date.now();
     setStatus(hasGroups ? 'Scan complete' : duplicates.unidentified ?
       'No duplicates among identified songs' : 'No exact duplicates found',
-      `${summaryLine(resultSummary)}${hasGroups ? '' : coverage + verification + consistency}\nScanned ${formatDate(Date.now())}.`);
-    notes.textContent = notesText;
-    notes.hidden = !notesText;
-    groups = duplicates.groups;
-    hasScanResult = true;
-    setBadge(groups.length);
-    renderResults();
-    cacheCurrent(currentPlaylist, result.info, result.countVerified, result.modificationChecked);
+      `${summaryLine(resultSummary)}${hasGroups ? '' : coverage + verification + consistency}\nScanned ${formatDate(scannedAt)}.`);
+    // Only this completed, fully validated scan may replace the last success.
+    applyCompleted({
+      playlistName: result.info.name,
+      scannedAt,
+      groups: duplicates.groups,
+      totalTracks,
+      unidentified,
+      notes: notesText,
+      cached: false,
+    });
+    const saved = cacheCurrent(currentPlaylist, result.info, result.countVerified, result.modificationChecked, scannedAt);
+    if (lastCompleted) lastCompleted.cached = saved;
   } catch (error) {
+    // A failed or cancelled scan never replaces the last completed result. When
+    // one exists, restore it and state plainly that it is not this scan's output.
     clearGroups();
     const cancelled = error instanceof ScanError && error.code === 'CANCELLED';
     scanFailed = !cancelled;
-    setStatus(cancelled ? 'Scan cancelled' : 'Scan failed',
-      errorMessage(error), !cancelled, cancelled ? undefined : errorCode(error));
+    const code = cancelled ? undefined : errorCode(error);
+    if (lastCompleted) {
+      const previous = lastCompleted;
+      applyCompleted(previous);
+      setStatus(cancelled ? 'Scan cancelled' : 'Scan failed',
+        `${errorMessage(error)}\n${lastCompletedNotice(previous)}`, !cancelled, code);
+    } else {
+      setBadge(null);
+      setStatus(cancelled ? 'Scan cancelled' : 'Scan failed', errorMessage(error), !cancelled, code);
+    }
     if (error instanceof ScanError && ['PAGE_CHANGED', 'AUTH', 'MUSICKIT_UNAVAILABLE', 'NOT_FOUND'].includes(error.code)) {
       source = null;
       currentPlaylist = null;

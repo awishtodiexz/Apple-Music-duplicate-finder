@@ -95,3 +95,60 @@ test('conflicting catalog mappings never merge different songs through a library
   assert.equal(result.unidentified, 2);
   assert.equal(result.extraCopies, 2);
 });
+test('distinct library resources that map to one catalog song join its catalog occurrences', () => {
+  // Both library entries carry their own unambiguous catalog ID, so the shared
+  // recording is matched through the catalog namespace rather than the library.
+  const input = tracks([null, null, '900', '900']);
+  input[0]!.libraryId = 'i.a';
+  input[1]!.libraryId = 'i.b';
+  input[2]!.libraryId = 'i.a';
+  input[3]!.libraryId = 'i.b';
+  const result = findDuplicates(input);
+  assert.deepEqual(result.groups.map(group => group.identity), ['catalog:900']);
+  assert.deepEqual(result.groups[0]?.positions, [1, 2, 3, 4]);
+  assert.equal(result.groups[0]?.copies, 4);
+  assert.equal(result.extraCopies, 3);
+  assert.equal(result.unidentified, 0);
+});
+test('late unambiguous mappings keep playlist order and the first appearance metadata', () => {
+  const input = tracks(['2', null, '1', '2', null, '1']);
+  input[1]!.libraryId = 'i.a';
+  input[2]!.libraryId = 'i.a';
+  input[4]!.libraryId = 'i.b';
+  input[5]!.libraryId = 'i.b';
+  input[1]!.name = 'Mapped first';
+  input[1]!.artist = 'Mapped artist';
+  const result = findDuplicates(input);
+  // catalog:2 appears first even though catalog:1 resolves a mapping earlier.
+  assert.deepEqual(result.groups.map(group => group.identity), ['catalog:2', 'catalog:1']);
+  assert.deepEqual(result.groups.map(group => group.positions), [[1, 4], [2, 3, 5, 6]]);
+  assert.equal(result.groups[1]?.name, 'Mapped first');
+  assert.equal(result.groups[1]?.artist, 'Mapped artist');
+  assert.equal(result.extraCopies, 4);
+  assert.equal(result.unidentified, 0);
+});
+test('mapping conflicts are detected regardless of observation order', () => {
+  for (const catalogIds of [['111', '222'], ['222', '111']]) {
+    const input = tracks([null, ...catalogIds, null]);
+    for (const track of input) track.libraryId = 'i.same';
+    // The two library-only occurrences share their library ID, but the
+    // contradictory catalog mappings leave both unidentified.
+    const result = findDuplicates(input);
+    assert.deepEqual(result.groups, []);
+    assert.equal(result.unidentified, 2);
+    assert.equal(result.extraCopies, 0);
+  }
+});
+
+test('the 50,000-track limit keeps every position and group count', () => {
+  const input: Track[] = Array.from({ length: 50_000 }, (_, index) => ({
+    position: index + 1, name: 'Song', artist: 'Artist',
+    catalogId: String(index % 25_000), libraryId: null,
+  }));
+  const result = findDuplicates(input);
+  assert.equal(result.groups.length, 25_000);
+  assert.equal(result.extraCopies, 25_000);
+  assert.equal(result.unidentified, 0);
+  assert.deepEqual(result.groups[0]?.positions, [1, 25_001]);
+  assert.deepEqual(result.groups.at(-1)?.positions, [25_000, 50_000]);
+});

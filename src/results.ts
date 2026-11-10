@@ -82,10 +82,15 @@ export function formatGroupText(group: DuplicateGroup): string {
   return `${group.name} — ${group.artist}\n${copies} · positions ${group.positions.join(', ')}`;
 }
 
+// Spreadsheet programs may trim or ignore leading whitespace, control and format
+// characters before deciding whether a cell is a formula, so checking only byte
+// zero is not enough. The apostrophe is visible text, not a secret.
+const leadingInvisible = /^[\s\p{Cc}\p{Cf}]+/u;
+const formulaTrigger = /^[=+\-@\t\r\n\u2212\uff0b\uff0d\uff1d\uff20]/;
+
 function csvField(value: string): string {
-  // Prevent spreadsheet formula execution when a song or artist name begins
-  // with a formula trigger. The apostrophe is visible text, not a secret.
-  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  const firstVisible = value.replace(leadingInvisible, '');
+  const safe = formulaTrigger.test(value) || formulaTrigger.test(firstVisible) ? `'${value}` : value;
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 

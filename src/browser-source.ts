@@ -10,6 +10,11 @@ import { bridgeErrorCodes, type BridgeReply, type BridgeRequest, type PlaylistIn
  */
 const injectionTimeoutMs = 30_000;
 
+/** Cross-context replies are untrusted; arrays with custom properties are not records. */
+function plainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 export function createBrowserSource(tabId: number, playlist: PlaylistRef): PlaylistSource {
   /**
    * Chrome localizes injection errors, so prefer tab state over matching English
@@ -33,16 +38,22 @@ export function createBrowserSource(tabId: number, playlist: PlaylistRef): Playl
     let timer: ReturnType<typeof setTimeout> | undefined;
     const cancelInPage = (): void => {
       // Best effort: navigation/permission loss may prevent this injection.
-      void chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, world: 'MAIN',
-        func: cancelMusicKitRead, args: [requestId] }).catch(() => {});
+      // A synchronous throw here must not escape an abort or timeout handler.
+      try {
+        const pending = chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, world: 'MAIN',
+          func: cancelMusicKitRead, args: [requestId] });
+        void Promise.resolve(pending).catch(() => {});
+      } catch { /* best effort */ }
     };
-    const pending = chrome.scripting.executeScript({
-      target: { tabId, frameIds: [0] },
-      world: 'MAIN',
-      func: musicKitBridge,
-      args: [{ ...request, requestId }],
-    });
     try {
+      // Keep the call inside the try: argument validation or an unavailable
+      // scripting API can throw synchronously instead of rejecting.
+      const pending = chrome.scripting.executeScript({
+        target: { tabId, frameIds: [0] },
+        world: 'MAIN',
+        func: musicKitBridge,
+        args: [{ ...request, requestId }],
+      });
       const frames = await Promise.race([
         pending,
         new Promise<never>((_, reject) => {
@@ -57,7 +68,7 @@ export function createBrowserSource(tabId: number, playlist: PlaylistRef): Playl
       if (signal?.aborted) throw new ScanError('CANCELLED');
       const reply: BridgeReply | undefined = frames[0]?.result;
       if (!reply) throw new ScanError('PAGE_CHANGED');
-      if (typeof reply.ok !== 'boolean') throw new ScanError('FORMAT');
+      if (!plainRecord(reply) || typeof reply.ok !== 'boolean') throw new ScanError('FORMAT');
       if (!reply.ok) {
         if (!bridgeErrorCodes.includes(reply.code)) throw new ScanError('FORMAT');
         const retryAfter = reply.retryAfterMs;
@@ -65,25 +76,25 @@ export function createBrowserSource(tabId: number, playlist: PlaylistRef): Playl
           { retryAfterMs: Math.min(retryAfter, 600_000) } : undefined);
       }
       // The page is an untrusted boundary; TypeScript alone cannot validate it.
-      const data = reply.data;
+      const data: unknown = reply.data;
       const count = (value: unknown): boolean => value === null || (Number.isSafeInteger(value) && (value as number) >= 0);
-      if (!data || !count(data.total)) throw new ScanError('FORMAT');
+      if (!plainRecord(data) || !count(data.total)) throw new ScanError('FORMAT');
       if (request.action === 'metadata') {
-        const info = data as PlaylistInfo;
+        const info = data as unknown as PlaylistInfo;
         if (typeof info.name !== 'string' || info.name.length > 2000 ||
           !(info.modified === null || typeof info.modified === 'string' && info.modified.length <= 2000) ||
           !(info.revision == null || typeof info.revision === 'string' && info.revision.length <= 2000)) throw new ScanError('FORMAT');
       } else {
-        const page = data as TrackPage;
+        const page = data as unknown as TrackPage;
         if (!Array.isArray(page.tracks) || page.tracks.length > 100 || !count(page.nextOffset) || page.tracks.some(track =>
-          !track || !Number.isSafeInteger(track.position) || track.position <= 0 ||
+          !plainRecord(track) || !Number.isSafeInteger(track.position) || track.position <= 0 ||
           typeof track.name !== 'string' || track.name.length > 2000 || typeof track.artist !== 'string' || track.artist.length > 2000 ||
           !(track.catalogId === null || typeof track.catalogId === 'string' && /^\d{1,128}$/.test(track.catalogId)) ||
           !(track.libraryId === null || typeof track.libraryId === 'string' && track.libraryId.length <= 128 && /^i\.[A-Za-z0-9-]+$/.test(track.libraryId)))) {
           throw new ScanError('FORMAT');
         }
       }
-      return data;
+      return data as unknown as PlaylistInfo | TrackPage;
     } catch (error) {
       if (error instanceof ScanError) throw error;
       // A closed or replaced tab is a playlist change, not a permission problem.

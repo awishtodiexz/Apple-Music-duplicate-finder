@@ -18,7 +18,7 @@
       </header>
       <section class="playlist" aria-labelledby="playlist-label">
         <h2 id="playlist-label">Current playlist</h2>
-        <p id="playlist-name">Detecting playlist…</p>
+        <p id="playlist-name" dir="auto">Detecting playlist…</p>
       </section>
       <button id="scan" type="button" disabled>Scan for Duplicates</button>
       <button id="cancel" class="secondary" type="button" hidden>Cancel scan</button>
@@ -66,7 +66,7 @@
       <p id="results-announcer" class="visually-hidden" role="status" aria-live="polite"></p>
       <button id="clear-results" class="secondary" type="button" aria-label="Clear results" hidden>Clear results</button>
       <footer>Only looks. Never changes your music. <span id="version" class="version"></span>
-        <span aria-hidden="true">·</span>
+        <span id="popout-separator" aria-hidden="true" hidden>·</span>
         <button id="pop-out" class="link-button" type="button" hidden>Open in a window</button>
       </footer>
     </main>
