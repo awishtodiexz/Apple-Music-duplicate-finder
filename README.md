@@ -1,112 +1,83 @@
-<p align="center">
-  <img src="public/icon-128.png" width="80" alt="Apple Music Duplicate Finder icon">
-</p>
+<div align="center">
 
-<h1 align="center">Apple Music Duplicate Finder</h1>
+<img src="public/icon-128.png" width="96" alt="">
 
-<p align="center">Find repeated songs in your Apple Music playlists.</p>
+# Apple Music Duplicate Finder
 
-<p align="center">
-  <a href="https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.4.0/apple-music-duplicate-finder-v1.4.0.zip"><strong>Download v1.4.0</strong></a>
-  · <a href="#installation">Installation</a>
-  · <a href="#privacy">Privacy</a>
-</p>
+Find the songs that show up more than once in your Apple Music playlists.
 
-<p align="center">
-  <a href="https://github.com/awishtodiexz/Apple-Music-duplicate-finder/actions/workflows/ci.yml"><img src="https://github.com/awishtodiexz/Apple-Music-duplicate-finder/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-</p>
+[**Download v1.4.0**](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.4.0/apple-music-duplicate-finder-v1.4.0.zip) · [Install](#install) · [Privacy](#privacy)
 
-A free, open-source Chrome and Edge extension that shows which songs appear more than once, and where to find them. It only reads your playlist; it never changes your music.
+[![CI](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/actions/workflows/ci.yml/badge.svg)](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<p align="center">
-  <img src="docs/images/scan-preview.png" width="380" alt="Demo scan: Midnight Drive appears three times at playlist positions 1, 101, and 245.">
-  <br><sub>Actual extension interface with fictional demo data. The consistency note explains that matching modification markers are not an atomic snapshot.</sub>
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshot-dark.png">
+  <img src="docs/images/screenshot-light.png" width="340" alt="The extension popup listing three repeated songs with their playlist positions">
+</picture>
 
-## What it does
+</div>
 
-- Finds entries that share an Apple Music song identifier, not just a title.
-- Shows every playlist position where each repeated song appears.
-- Read-only; it never edits, reorders, or deletes music.
-- Lets you cancel scans and enforces ten-minute, 50,000-entry, 2,000-page, and 16-million-character limits.
-- Search and sort repeated songs, filter by minimum copies, copy one song or the whole visible list, or download it as CSV.
-- Restores the last completed scan when the popup is reopened; **Clear** removes it, and a changed playlist is called out as stale. A failed or cancelled rescan keeps the last completed result visible and clearly labelled, while a completed valid scan replaces it. Updating from v1.2.5 preserves the theme choice and a valid cached last scan without migration.
-- **Open in a window** keeps the popup alive in its own window, so a scan is not lost when you click elsewhere.
-- Renders results in batches with keyboard focus and light/dark themes. The header theme control switches between Auto (follows your system), Light and Dark, and remembers the choice. The toolbar badge shows, on the scanned tab, how many repeated songs the last scan found. Very large duplicate groups collapse long position lists until you expand them.
+## Features
 
-## Installation
+- **Exact matches.** Songs are matched by their Apple Music ID, not by title, so different versions of a song stay separate.
+- **Positions.** See every spot in the playlist where a song appears.
+- **Search, sort and export.** Filter the list, copy it, or save it as CSV.
+- **Read-only.** It never edits, reorders or deletes anything. You decide what to remove.
+- **Remembers your last scan** and tells you when the playlist has changed since.
+- **Light and dark themes**, keyboard support, and a toolbar badge with the duplicate count.
 
-Requires Chrome or Edge 111 or newer on desktop. This is a manual unpacked extension; it is not published on the Chrome Web Store.
+## Install
 
-1. [Download the v1.4.0 ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.4.0/apple-music-duplicate-finder-v1.4.0.zip) and extract it into a folder you intend to keep.
-2. Open `chrome://extensions` in Chrome or `edge://extensions` in Edge.
-3. Enable **Developer mode**, then choose **Load unpacked**.
-4. Select the extracted folder containing `manifest.json`.
-5. Pin the extension to your toolbar for easy access.
+Works in Chrome and Edge 111 or newer. It isn't on the Chrome Web Store, so you load it manually:
 
-No development tools are needed. On the [release page](../../releases/latest), choose `apple-music-duplicate-finder-v1.4.0.zip`; GitHub's *Source code* archives require building first. The release also includes a `.sha256` checksum; see [release verification](docs/RELEASING.md#verify-a-download). Some managed browsers block unpacked extensions.
+1. [Download the ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.4.0/apple-music-duplicate-finder-v1.4.0.zip) and extract it to a folder you'll keep.
+2. Go to `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode**.
+3. Click **Load unpacked** and pick the extracted folder.
 
-**To update:** extract the latest extension ZIP over the same folder, then click **Reload** on the Extensions page. Updates are manual.
+To update, extract the new ZIP over the same folder and click **Reload** on the extensions page.
 
-## Scan a playlist
+> [!NOTE]
+> Download `apple-music-duplicate-finder-v1.4.0.zip` from the release, not GitHub's *Source code* archive, which needs to be built first. Each release also has a `.zip.sha256` checksum if you want to [verify it](docs/DEVELOPMENT.md#verify-a-download).
 
-1. Sign in at [music.apple.com](https://music.apple.com) and open a playlist.
-2. Open the extension and check the **Current playlist** name.
-3. Click **Scan for Duplicates** and keep the popup open until it finishes.
+## Usage
 
-Use **Cancel scan** to stop and start again. Cancelled, timed-out, failed, or resource-limited rescans discard the new attempt and never accept partial results. If a previous completed scan exists, it stays visible and labelled as the previous result. Scans are limited to ten minutes, 50,000 entries, 2,000 pages, and 16 million metadata characters. The deadline is wall-clock, and 50,000 entries means 500 sequential 100-entry requests, so a slow connection reaches the ten-minute limit before the entry limit. A scan that is clearly too slow to finish stops early with the same deadline message instead of holding the popup for the full ten minutes.
+1. Open a playlist on [music.apple.com](https://music.apple.com) while signed in.
+2. Click the extension icon and press **Scan for Duplicates**.
+3. Keep the popup open until it finishes. Clicking outside closes it, so use **Open in a window** for long playlists.
 
-**“This song appears twice”** at **positions 12 and 84** means it is listed at number 12 and again at number 84. You can review those entries in Apple Music and remove unwanted ones yourself. Rescan after changing the playlist.
+A result like *"appears twice · positions 12, 84"* means the song is the 12th and 84th track. Remove the extra copy in Apple Music, then scan again.
 
-## Troubleshooting
+Scans stop after a ten-minute limit or 50,000 songs, and a failed scan never shows partial results.
 
-- **“Open a playlist”** — navigate to a playlist on `music.apple.com`, then reopen the extension.
-- **“MusicKit unavailable”** — let the player finish loading, reload the page, and retry.
-- **“Sign in”** — your Apple Music session may have expired; sign in again in the tab.
-- **The popup closed** — an in-progress scan is discarded, but the last completed scan is restored next time. Keep the popup focused until scanning finishes.
-- **“No total supplied”** — Apple did not provide an independent count; the popup explains that all pages were read but the count is unverified.
+### Troubleshooting
 
-## What it matches
-
-Songs are matched by Apple Music identifiers, not titles. Different editions may stay separate, and entries without reliable identifiers are excluded. The popup explains when Apple hasn't supplied a total to verify the count. If a request fails or the reader detects missing data, it shows an error.
-
-Avoid editing the playlist during a scan. This is a browser toolbar popup: clicking outside it closes an in-progress scan. The last completed scan is cached locally and restored next time; use **Clear** in the results toolbar to remove it. Keep the popup focused until scanning finishes; the toolbar popup intentionally retains this behavior.
-
-The popup reports whether modification markers were available. Matching counts or markers cannot prove an atomic snapshot; same-count edits and reordering can escape detection. Rescan after editing.
-
-Live-tested on Chrome with a roughly 1,200-song playlist in October 2026: the scan completed, found duplicates, and showed no visible issues. Edge and other account configurations still need independent live testing. Apple can change its web player, so compatibility may change too. See [testing and limitations](docs/TESTING.md).
+| Message | What to do |
+| --- | --- |
+| Open a playlist | Go to a playlist on music.apple.com and reopen the popup. |
+| MusicKit unavailable | Wait for the player to load, or reload the page. |
+| Sign in | Your Apple Music session expired. Sign in again. |
 
 ## Privacy
 
-- Playlist data is processed in browser memory. The last completed scan is cached locally in extension storage so it survives closing the popup; it is replaced by the next completed scan and can be removed with **Clear**. Nothing is uploaded.
-- The cache is bounded; very large results are not saved and the popup tells you to use Copy or CSV.
-- No passwords, cookies or authentication tokens are collected.
-- No analytics, backend, or third-party uploads.
-- Only `activeTab` and `scripting` permissions are requested.
+Everything runs in your browser. The extension talks only to Apple Music, using the session already open in your tab. No accounts, no analytics, no servers. It asks for just two permissions, `activeTab` and `scripting`, and the last scan is stored locally until you press **Clear**.
 
-The only network requests are read-only Apple Music API calls made through the open page's existing session. There is no separate extension account. [How it works](docs/ARCHITECTURE.md).
+Curious how it works? See [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-The [previous v1.2.5 release](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.5) and its [published ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.2.5/apple-music-duplicate-finder-v1.2.5.zip) remain unchanged.
-
-## Build from source
-
-Supports Node.js 22 (22.8+), 24, and 26 with npm; use a current patched release. Browser tests use Playwright's pinned Chromium; see [development instructions](docs/DEVELOPMENT.md).
+## Development
 
 ```sh
 npm ci
-npx --no-install playwright install chromium
+npx playwright install chromium
 npm run check
-npm run audit
 ```
 
-Load `dist/` as an unpacked extension. The checks generate `artifacts/apple-music-duplicate-finder-v1.4.0.zip` and its `.zip.sha256` checksum. Download both files from the release if you want to verify the installation ZIP; see [release verification](docs/RELEASING.md#verify-a-download).
+This builds the extension into `dist/` and runs the full test suite. See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for more.
 
-`npm run check` includes docs/version consistency, type checks, unit tests, browser fixtures, an installed-extension smoke test, deterministic ZIP/checksum checks, and static security checks. These controlled tests do not establish full compatibility with the live Apple Music service.
+## Contributing
 
-## Help and contributions
+Bug reports and pull requests are welcome. Please read the [contributing guide](.github/CONTRIBUTING.md) first, and report security issues [privately](.github/SECURITY.md).
 
-[Report a bug](../../issues) with your browser version and steps to reproduce it. Redact account details and private playlist information. For vulnerabilities, follow the [security policy](.github/SECURITY.md).
+## License
 
-[Contributing](.github/CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE)
-
-<sub>Independent project. Not affiliated with or endorsed by Apple Inc. Apple Music is a trademark of Apple Inc.</sub>
+[MIT](LICENSE). Not affiliated with Apple. Apple Music is a trademark of Apple Inc.

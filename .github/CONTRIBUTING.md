@@ -1,39 +1,20 @@
 # Contributing
 
-Thanks for helping improve Apple Music Duplicate Finder.
+Thanks for helping out. This project is meant to stay small, so for anything bigger than a bug fix, please open an issue first to talk it through.
 
-Participation in this project is covered by the [Code of Conduct](../CODE_OF_CONDUCT.md). Report unacceptable behavior privately to the maintainer.
+## Getting started
 
-## Before you begin
-
-Check existing issues before opening a duplicate report. For new functionality, open an issue so the project can stay small, reliable, and easy to maintain.
-
-## Local setup
-
-Supports Node.js 22 (22.8+), 24, and 26 with npm. Browser tests use Playwright's pinned Chromium; see [development instructions](../docs/DEVELOPMENT.md).
+See [DEVELOPMENT.md](../docs/DEVELOPMENT.md) for setup. Before opening a pull request, run:
 
 ```sh
-npm ci
-npx --no-install playwright install chromium
 npm run check
-npm run audit
 ```
 
-To test an unpacked build, enable Developer mode in your browser's Extensions page and load the generated `dist/` directory.
+## Guidelines
 
-## Pull requests
+- Keep pull requests focused on one change.
+- Add a test when you change how playlists are read, how songs are matched, or how errors are handled.
+- The extension stays read-only and keeps its two permissions (`activeTab`, `scripting`). Changes that write to playlists or need broader access won't be accepted.
+- Don't commit build output (`dist/`, `artifacts/`) or anything from your own Apple Music account: playlist data, screenshots, tokens or cookies.
 
-- Keep changes focused and explain the problem they solve.
-- Add regression tests for changes to playlist retrieval, song matching, or error handling.
-- Preserve the read-only design and native toolbar popup. Do not introduce playlist writes, credential interception, unnecessary browser permissions, or a side panel as part of a maintenance change.
-- Run `npm run check` and `npm run audit` before submitting.
-- Open a pull request; direct pushes to `main` are blocked by branch protection.
-- Do not commit generated `dist/`, `artifacts/`, `.cache/`, or `node_modules/` content.
-- Avoid unrelated formatting changes and new dependencies unless justified.
-- Do not add private playlist data, screenshots containing account details, tokens, cookies, or other personal information to tests, issues, or pull requests.
-
-## Bug reports
-
-Include your browser/version, extension/version, steps to reproduce, expected behavior, and actual behavior. Redact personal and account information from screenshots and logs. For security vulnerabilities, follow [SECURITY.md](SECURITY.md) rather than posting exploit details publicly.
-
-For versioning, release checks, artifacts, and publication, follow the [release checklist](../docs/RELEASING.md).
+Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).

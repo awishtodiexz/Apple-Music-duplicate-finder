@@ -12,7 +12,7 @@ for (const name of extensionFiles) {
   files[name] = [new Uint8Array(await readFile('dist/' + name)), { mtime: new Date(2000, 0, 1) }];
 }
 files['LICENSE'] = [new Uint8Array(await readFile('LICENSE')), { mtime: new Date(2000, 0, 1) }];
-files['INSTALL.txt'] = [new Uint8Array(await readFile('INSTALL.txt')), { mtime: new Date(2000, 0, 1) }];
+files['INSTALL.txt'] = [new Uint8Array(await readFile('assets/INSTALL.txt')), { mtime: new Date(2000, 0, 1) }];
 await mkdir('artifacts', { recursive: true });
 const destination = `artifacts/apple-music-duplicate-finder-v${version}.zip`;
 const archive = zipSync(files);
