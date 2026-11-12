@@ -8,6 +8,7 @@
 - A popup left open in its own window no longer fails with `INCOMPLETE` after the playlist was edited before scanning.
 - Previous results, search and sort stay visible during a rescan instead of disappearing until it finishes.
 - Keyboard focus moves between **Scan** and **Cancel scan** instead of getting lost.
+- A successful scan no longer shows a technical consistency note. The warning only appears when Apple provides no modification marker.
 
 ## [1.3.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.3.0) (2026-11-10)
 
