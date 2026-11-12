@@ -69,8 +69,8 @@ try {
     window.chrome = {
       runtime: { getManifest: () => ({ version }), getURL: path => 'https://duplicate-finder.test/' + path },
       action: {
-        setBadgeText: async ({ text }) => { window.__badge = text; },
-        setBadgeBackgroundColor: async () => {},
+        setBadgeText: async ({ text, tabId }) => { window.__badge = text; window.__badgeTabId = tabId; },
+        setBadgeBackgroundColor: async ({ tabId }) => { window.__badgeColorTabId = tabId; },
       },
       windows: { create: async options => { window.__createdWindow = options; return {}; } },
       tabs: {
@@ -399,6 +399,61 @@ try {
     assert.equal(await popup.locator('#results').isVisible(), false);
     await popup.waitForFunction(() => window.__badge === '');
     console.log(`PASS (${apiMode}): failed/cancelled/mid-scan-close rescans preserve the last completed result and badge; cached copy/CSV naming; revision-based staleness; corrupt cache rejection; playlist switch recovery`);
+
+    // The badge belongs to the scanned tab, not to every tab in the browser.
+    await open('duplicates');
+    await scan();
+    assert.equal(await popup.evaluate(() => window.__badge), '1');
+    assert.equal(await popup.evaluate(() => window.__badgeTabId), 1);
+    assert.equal(await popup.evaluate(() => window.__badgeColorTabId), 1);
+
+    // A long-open window must not use connect-time metadata as the scan baseline:
+    // an edit made before Scan is not a change during the scan.
+    await open('duplicates');
+    await popup.waitForFunction(() => !document.querySelector('#scan').disabled);
+    await apple.evaluate(() => { window.scenario = 'edited'; window.requests = []; });
+    await popup.evaluate(() => { const real = Date.now; Date.now = () => real() + 120_000; });
+    await scan();
+    assert.equal(await popup.locator('#status-title').textContent(), 'Scan complete');
+    // Fresh baseline metadata + 3 track pages + validation metadata.
+    assert.equal((await apple.evaluate(() => window.requests)).length, 5);
+    await apple.evaluate(() => { window.scenario = 'duplicates'; });
+
+    // A rescan keeps the previous results, search and sort visible until it
+    // completes, and keyboard focus moves Scan -> Cancel -> Scan.
+    await open('duplicates');
+    await scan();
+    await popup.locator('#results-search').fill('numb');
+    await popup.locator('#results-sort').selectOption('copies');
+    await apple.evaluate(() => { window.requests = []; window.fixtureDelay = 600; });
+    await popup.locator('#scan').focus();
+    await popup.keyboard.press('Enter');
+    await popup.waitForFunction(() => !document.querySelector('#cancel').hidden);
+    assert.equal(await popup.evaluate(() => document.activeElement?.id), 'cancel');
+    assert.equal(await popup.locator('#duplicate-list li').count(), 1);
+    assert.equal(await popup.locator('#results').getAttribute('aria-busy'), 'true');
+    assert.equal(await popup.locator('#clear-results').isDisabled(), true);
+    await apple.evaluate(() => { window.fixtureDelay = 25; });
+    await popup.waitForFunction(() => !document.querySelector('#scan').disabled);
+    assert.equal(await popup.locator('#status-title').textContent(), 'Scan complete');
+    assert.equal(await popup.evaluate(() => document.activeElement?.id), 'scan');
+    assert.equal(await popup.locator('#results-search').inputValue(), 'numb');
+    assert.equal(await popup.locator('#results-sort').inputValue(), 'copies');
+    assert.equal(await popup.locator('#results').getAttribute('aria-busy'), null);
+    assert.equal(await popup.locator('#clear-results').isDisabled(), false);
+    // Cancelling from the keyboard returns focus to Scan instead of the body.
+    await apple.evaluate(() => { window.requests = []; window.fixtureDelay = 600; });
+    await popup.locator('#scan').focus();
+    await popup.keyboard.press('Enter');
+    await popup.waitForFunction(() => document.activeElement?.id === 'cancel');
+    await apple.waitForFunction(() => window.requests.some(path => path.includes('/tracks?')));
+    await popup.keyboard.press('Enter');
+    await popup.getByRole('heading', { name: 'Scan cancelled', exact: true }).waitFor();
+    assert.equal(await popup.evaluate(() => document.activeElement?.id), 'scan');
+    assert.equal(await popup.locator('#duplicate-list li').count(), 1);
+    assert.equal(await popup.locator('#results-search').inputValue(), 'numb');
+    await apple.evaluate(() => { window.fixtureDelay = 25; });
+    console.log(`PASS (${apiMode}): per-tab badge, fresh scan baseline after a long-open window, previous results and filters kept during rescan, Scan/Cancel focus handoff`);
 
     for (const scenario of ['empty', 'distinct']) {
       await open(scenario);

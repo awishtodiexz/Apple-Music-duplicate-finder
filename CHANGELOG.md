@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.4.0) (2026-11-12)
+
+Bug-fix release for the popup's badge, scan baseline, rescan display and keyboard focus. Duplicate matching, permissions, the read-only model, and the theme and cache storage keys are unchanged; valid v1.3.0 caches load without migration.
+
+### Fixed
+
+- The toolbar badge is now set on the scanned tab instead of globally, so other tabs and playlists no longer show a previous scan's duplicate count.
+- Playlist metadata fetched while connecting is reused as the scan baseline only for 30 seconds. A long-open **Open in a window** window no longer fails with `INCOMPLETE` when the playlist was edited before **Scan** was clicked.
+- A rescan keeps the previous completed results, search and sort visible (marked busy) until it completes, instead of clearing them for the length of the scan. **Clear results** is unavailable while a scan runs.
+- Keyboard focus moves from **Scan** to **Cancel scan** when a scan starts and back to **Scan** when it completes, fails or is cancelled, and after **Retry connection**, instead of falling to the page body.
+
 ## [1.3.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.3.0) (2026-11-10)
 
 Quality and compatibility release. This integrates six coordinated improvement areas: MusicKit compatibility, scan accuracy, UI/accessibility, results/caching lifecycle, security/privacy, and testing/performance. Permissions and the read-only model are unchanged. Existing v1.2.5 theme choices and valid cached scans remain readable without migration.

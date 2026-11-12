@@ -96,6 +96,12 @@ try {
     };
   }
   let activePopup;
+  // The badge is scoped to the scanned tab (the popup's own active-tab query);
+  // the global badge must stay empty so other tabs never show this count.
+  const badgeIs = (popup, expected) => popup.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return { tab: await chrome.action.getBadgeText({ tabId: tab.id }), global: await chrome.action.getBadgeText({}) };
+  }).then(badge => badge.tab === expected && badge.global === '');
   async function open(scenario, mode = 'v3') {
     if (!activePopup) await apple.bringToFront();
     if (activePopup) await activePopup.evaluate(() => localStorage.clear());
@@ -208,7 +214,7 @@ try {
   const resilient = await open('duplicates');
   await scan(resilient);
   assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
-  await until(() => resilient.evaluate(() => chrome.action.getBadgeText({})).then(text => text === '1'), 'badge after completed scan');
+  await until(() => badgeIs(resilient, '1'), 'badge after completed scan');
   await apple.evaluate(() => { window.scenario = 'malformed'; });
   await resilient.evaluate(() => document.querySelector('#scan').click());
   await until(() => resilient.evaluate(() => !document.querySelector('#scan').disabled), 'failed rescan');
@@ -216,7 +222,7 @@ try {
   assert.match(await resilient.evaluate(() => document.querySelector('#status-detail').textContent), /Showing the last completed scan from/);
   assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
   assert.equal(await resilient.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: 1, 101, 245');
-  await until(() => resilient.evaluate(() => chrome.action.getBadgeText({})).then(text => text === '1'), 'badge after failed rescan');
+  await until(() => badgeIs(resilient, '1'), 'badge after failed rescan');
   await apple.evaluate(() => { window.scenario = 'duplicates'; });
   await resilient.evaluate(() => document.querySelector('#scan').click());
   await until(() => resilient.evaluate(() => !document.querySelector('#scan').disabled), 'recovered rescan');
@@ -233,7 +239,7 @@ try {
     }
   }, 'cached last scan after popup reload');
   assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
-  await until(() => resilient.evaluate(() => chrome.action.getBadgeText({})).then(text => text === '1'), 'badge after cached restore');
+  await until(() => badgeIs(resilient, '1'), 'badge after cached restore');
   console.log('PASS: real popup reload restores the cached completed scan and badge');
 
   // Pop-out: reload the existing toolbar popup instead of closing and reopening

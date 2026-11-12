@@ -12,15 +12,15 @@ npm run audit
 
 `npm run benchmark` samples reader/pagination, duplicate matching, CSV, filter/sort, retained heap and cancellation latency for 1,000, 10,000, and 50,000 tracks. It runs with `--expose-gc` for heap deltas, reports medians and ranges, and asserts deterministic counts plus a generous cancellation bound. It does not simulate Apple network latency, so the reader deadline remains the authority for live scans.
 
-The expanded suites contain **161 unit tests**, **71 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
+The expanded suites contain **161 unit tests**, **77 browser fixture scenarios**, and an installed-extension smoke suite. They cover:
 
 - Exact identifier matching, missing/conflicting identifiers, conflicting mappings, original order, and 10,000/50,000-entry inputs.
 - Pagination beyond 100 entries, exact page boundaries, short pages, changing totals, truncated continuation responses, and final metadata validation.
 - Legacy `api.get()` and v3 `api.music()` response shapes, raw/nested response envelopes, conflicting wrapper/body pagination evidence, cancellation/timeout/navigation and abort-rejecting bodies during raw body consumption, timeouts, failed HTTP wrappers, nested Retry-After values, errors after partial retrieval, and catalog storefront precedence.
 - Popup progress, recovery, safe text rendering, unknown-identity warnings, batches of results, singular remaining-batch text, long/mixed-script names, and bounded position expansion.
 - Search, sort, copy, CSV export, cached-last-scan restore and explicit clear, extra-copy counts, and collapsed position lists for very large duplicate groups.
-- Cached results paint before the player connects and stay visible when MusicKit is unavailable; the badge is cleared when the popup opens on a different playlist, and the first scan reuses the connection metadata.
-- Failed, cancelled, or mid-scan-close rescans keep the last completed result and badge clearly labelled; cache freshness compares every shared marker and the known total, and inconsistent cache data is rejected.
+- Cached results paint before the player connects and stay visible when MusicKit is unavailable; the badge is set on the scanned tab only and cleared when the popup opens on a different playlist, and the first scan reuses the connection metadata only while it is under 30 seconds old.
+- Failed, cancelled, or mid-scan-close rescans keep the last completed result and badge clearly labelled, and a rescan keeps previous results, search and sort visible until it completes with focus moving Scan → Cancel → Scan; cache freshness compares every shared marker and the known total, and inconsistent cache data is rejected.
 - Existing v1.2.5 cache and theme keys remain readable without migration; only malformed cache data is rejected.
 - Error-code diagnostics, sanitized unexpected-error logging, retry-after propagation, internal-error classification, and localized tab-access handling through tab state.
 - Icon paths and dimensions, keyboard focus, and document scrolling down to 300 × 300 pixels in light and dark modes.
@@ -69,6 +69,10 @@ CPU benchmark on Windows with Node **26.12.1**, five samples per operation after
 | 50,000 | 500 | 7.52 ms | 11.9 ms | 18.2 ms | 2.17 ms | 25,000 | +5.50 MiB | 136.58 MiB |
 
 Cancellation settled in a **0.07 ms median** (1.30 ms maximum across five runs; the assertion bound is 2,000 ms). The earlier single-sample baseline read/match/CSV values on this machine were 2/1/1 ms at 1,000 tracks, 3/6/5 ms at 10,000, and 11/43/56 ms at 50,000. The final harness adds warmup, five samples and memory instrumentation, and correctness/security changes touch the bridge, reader and CSV paths, so this is not a before/after optimization claim. Browser render samples were about 80–124 ms for 1,100 additional groups and 164–308 ms to restore a 25,000-group cached scan and paint the first 50; expanding 6,000 positions was effectively immediate in the click handler, with the bounded-layout and keyboard behavior verified separately. These are CPU/fixture measurements, not Apple network latency; machine-specific timings are not release thresholds.
+
+### v1.4.0 fix verification (2026-11-12)
+
+The suite is **161 unit tests** and **77 browser fixture scenarios**. Six new browser scenarios (three per API version) cover the per-tab badge, a fresh scan baseline after the connect-time metadata is more than 30 seconds old, previous results and filters kept during a rescan, and the Scan/Cancel focus handoff; each was observed failing before its fix. The installed-extension smoke suite now reads the badge for the scanned tab and asserts the global badge stays empty. `npm run check` passed on Windows under Node **26.13.1**.
 
 ## Manual checks
 

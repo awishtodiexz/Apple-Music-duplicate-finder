@@ -60,7 +60,11 @@ interface CompletedScan {
 let lastCompleted: CompletedScan | null = null;
 let source: PlaylistSource | null = null;
 // Fetched while connecting; reused once so the first scan skips a round trip.
+// A popped-out window can stay open while the playlist is edited, so an old
+// copy is not a valid "before" snapshot: past this age the scan refetches it.
 let pendingInfo: PlaylistInfo | null = null;
+let pendingInfoAt = 0;
+const pendingInfoMaxAgeMs = 30_000;
 let currentPlaylist: PlaylistRef | null = null;
 let connectedTabId: number | null = null;
 let currentPlaylistName = '';
@@ -97,12 +101,16 @@ themeToggle.addEventListener('click', () => {
   applyTheme();
 });
 
-/** Badge count survives closing the popup, so it is the glanceable result. */
+/**
+ * Badge count survives closing the popup, so it is the glanceable result. It is
+ * scoped to the scanned tab: a global badge would label every other tab too.
+ */
 function setBadge(count: number | null): void {
   try {
     if (!chrome.action) return;
-    void Promise.resolve(chrome.action.setBadgeBackgroundColor({ color: '#c7284e' })).catch(() => {});
-    void Promise.resolve(chrome.action.setBadgeText({ text: count === null ? '' : count > 999 ? '999+' : String(count) }))
+    const target = connectedTabId === null ? {} : { tabId: connectedTabId };
+    void Promise.resolve(chrome.action.setBadgeBackgroundColor({ color: '#c7284e', ...target })).catch(() => {});
+    void Promise.resolve(chrome.action.setBadgeText({ text: count === null ? '' : count > 999 ? '999+' : String(count), ...target }))
       .catch(() => {});
   } catch {
     // Decorative only; never let a badge failure affect a scan.
@@ -425,6 +433,8 @@ function cachedStatus(cached: CachedScan): string {
 }
 
 async function initialize(): Promise<void> {
+  // "Retry connection" disables the focused button; give focus back afterwards.
+  const refocus = document.activeElement === scan;
   busy = true;
   scanFailed = false;
   hasScanResult = false;
@@ -473,6 +483,7 @@ async function initialize(): Promise<void> {
     try {
       const info = await candidate.metadata();
       pendingInfo = info;
+      pendingInfoAt = Date.now();
       source = candidate;
       currentPlaylist = playlist;
       currentPlaylistName = info.name;
@@ -502,6 +513,7 @@ async function initialize(): Promise<void> {
     scan.disabled = false;
     updateScanLabel();
     updatePopOut();
+    if (refocus) scan.focus();
   }
 }
 
@@ -585,20 +597,30 @@ scan.addEventListener('click', async () => {
   if (!source || !currentPlaylist) { await initialize(); return; }
   busy = true;
   scanFailed = false;
-  const baselineInfo = pendingInfo ?? undefined;
+  const age = Date.now() - pendingInfoAt;
+  const baselineInfo = pendingInfo && age >= 0 && age <= pendingInfoMaxAgeMs ? pendingInfo : undefined;
   pendingInfo = null;
   updatePopOut();
   const controller = new AbortController();
   scanController = controller;
+  // Disabling the focused Scan button would drop keyboard focus onto the body.
+  const focusCancel = document.activeElement === scan;
   cancel.hidden = false;
   scan.disabled = true;
   scan.textContent = 'Scanning…';
-  // The badge describes the last completed scan; keep it until a new completed
-  // scan replaces it, so closing or failing this scan cannot erase an accurate badge.
-  clearGroups();
+  if (focusCancel) cancel.focus();
+  // The badge and the results on screen describe the last completed scan; keep
+  // them (and the user's search/sort) until a new completed scan replaces them.
+  // Clear stays unavailable so it cannot race the scan's own cache write.
+  const showingPrevious = lastCompleted !== null;
+  if (!showingPrevious) clearGroups();
+  results.setAttribute('aria-busy', 'true');
+  clearResults.disabled = true;
+  resultsFeedback.textContent = '';
+  const keepNote = showingPrevious ? '\nPrevious results stay visible until this scan completes.' : '';
   progress.hidden = false;
   progress.removeAttribute('value');
-  setStatus('Scanning playlist…', 'Connecting to Apple Music…');
+  setStatus('Scanning playlist…', `Connecting to Apple Music…${keepNote}`);
   try {
     const result = await readPlaylist(source, ({ retrieved, total, elapsedMs, phase }) => {
       if (total !== null && total > 0) {
@@ -609,7 +631,7 @@ scan.addEventListener('click', async () => {
       if (phase === 'reading' && timestamp - lastStatusWrite < statusThrottleMs) return;
       const count = total === null ? number(retrieved) : `${number(retrieved)} of ${number(total)}`;
       setStatus(phase === 'validating' ? 'Checking playlist…' : 'Scanning playlist…',
-        `${count} songs retrieved · ${Math.floor(elapsedMs / 1000)}s elapsed\nKeep this popup open while scanning.`);
+        `${count} songs retrieved · ${Math.floor(elapsedMs / 1000)}s elapsed\nKeep this popup open while scanning.${keepNote}`);
     }, { signal: controller.signal, ...(baselineInfo ? { info: baselineInfo } : {}) });
     const duplicates = findDuplicates(result.tracks);
     currentPlaylistName = result.info.name;
@@ -646,7 +668,7 @@ scan.addEventListener('click', async () => {
   } catch (error) {
     // A failed or cancelled scan never replaces the last completed result. When
     // one exists, restore it and state plainly that it is not this scan's output.
-    clearGroups();
+    if (!lastCompleted) clearGroups();
     const cancelled = error instanceof ScanError && error.code === 'CANCELLED';
     scanFailed = !cancelled;
     const code = cancelled ? undefined : errorCode(error);
@@ -664,13 +686,18 @@ scan.addEventListener('click', async () => {
       currentPlaylist = null;
     }
   } finally {
+    // Hiding the focused Cancel button would drop keyboard focus onto the body.
+    const restoreFocus = document.activeElement === cancel || document.activeElement === scan;
     busy = false;
     scanController = null;
     cancel.hidden = true;
     scan.disabled = false;
+    results.removeAttribute('aria-busy');
+    clearResults.disabled = false;
     updateScanLabel();
     updatePopOut();
     progress.hidden = true;
+    if (restoreFocus) scan.focus();
   }
 });
 
