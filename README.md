@@ -6,7 +6,7 @@
 
 Find the songs that show up more than once in your Apple Music playlists.
 
-[**Download v1.4.0**](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.4.0/apple-music-duplicate-finder-v1.4.0.zip) · [Install](#install) · [Privacy](#privacy)
+[**Download v1.4.1**](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.4.1/apple-music-duplicate-finder-v1.4.1.zip) · [Install](#install) · [Privacy](#privacy)
 
 [![CI](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/actions/workflows/ci.yml/badge.svg)](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -31,14 +31,14 @@ Find the songs that show up more than once in your Apple Music playlists.
 
 Works in Chrome and Edge 111 or newer. It isn't on the Chrome Web Store, so you load it manually:
 
-1. [Download the ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.4.0/apple-music-duplicate-finder-v1.4.0.zip) and extract it to a folder you'll keep.
+1. [Download the ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.4.1/apple-music-duplicate-finder-v1.4.1.zip) and extract it to a folder you'll keep.
 2. Go to `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode**.
 3. Click **Load unpacked** and pick the extracted folder.
 
 To update, extract the new ZIP over the same folder and click **Reload** on the extensions page.
 
 > [!NOTE]
-> Download `apple-music-duplicate-finder-v1.4.0.zip` from the release, not GitHub's *Source code* archive, which needs to be built first. Each release also has a `.zip.sha256` checksum if you want to [verify it](docs/DEVELOPMENT.md#verify-a-download).
+> Download `apple-music-duplicate-finder-v1.4.1.zip` from the release, not GitHub's *Source code* archive, which needs to be built first. Each release also has a `.zip.sha256` checksum if you want to [verify it](docs/DEVELOPMENT.md#verify-a-download).
 
 ## Usage
 
