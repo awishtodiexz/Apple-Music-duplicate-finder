@@ -29,7 +29,7 @@ for (const entry of Object.keys(entries)) {
     `unsafe ZIP entry: ${entry}`);
 }
 for (const [entry, bytes] of Object.entries(entries)) {
-  const original = await readFile(extensionFiles.includes(entry) ? 'dist/' + entry : entry);
+  const original = await readFile(extensionFiles.includes(entry) ? 'dist/' + entry : entry === 'INSTALL.txt' ? 'assets/INSTALL.txt' : entry);
   assert.deepEqual(Buffer.from(bytes), original, entry + ' differs from tested source/build');
 }
 const tampered = Buffer.from(archive);

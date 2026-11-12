@@ -1,76 +1,68 @@
-# Building and testing
-
-## Requirements
-
-- Node.js 22 (22.8+), 24, or 26 and npm. Use a current patched release; Node.js 24 is a suitable default. Odd-numbered and future major versions are not declared supported.
-- Git to clone the repository, or an extracted GitHub source archive.
-- A desktop Chromium browser for manual testing. Automated tests use the full Chromium browser pinned by the Playwright lockfile. The extension manifest declares Chrome/Edge **111** as the minimum; automated fixtures run on the pinned current Chromium, so 111 compatibility remains a declaration rather than a separate automated job.
+# Development
 
 ## Setup
+
+You need Node.js 22.8+, 24 or 26.
 
 ```sh
 git clone https://github.com/awishtodiexz/Apple-Music-duplicate-finder.git
 cd Apple-Music-duplicate-finder
 npm ci
-npx --no-install playwright install chromium
+npx playwright install chromium
 ```
 
-If you downloaded the source archive, open a terminal in the extracted project folder and start with `npm ci`.
+Run `npm run build`, then load `dist/` from `chrome://extensions` with **Load unpacked**. After changing code, rebuild and click **Reload**.
 
-Both browser suites default to Playwright's bundled full Chromium. On Linux CI, install its system dependencies with `npx --no-install playwright install --with-deps chromium`. Browser downloads and test profiles are separate from your signed-in browser profile.
+## Scripts
 
-For the UI fixture suite only, `CHROMIUM_PATH` can select an existing executable. The installed-extension smoke test deliberately uses pinned Chromium: branded Chrome and Edge no longer support the required command-line extension sideloading. See [Playwright's extension testing documentation](https://playwright.dev/docs/chrome-extensions).
+| Command | What it does |
+| --- | --- |
+| `npm run build` | Type-check and build the extension into `dist/` |
+| `npm test` | Unit tests |
+| `npm run test:browser` | Popup tests in Chromium against a mocked Apple Music page |
+| `npm run test:extension` | Installs the real built extension in a fresh Chromium profile and drives the toolbar popup |
+| `npm run test:package` | Builds the release ZIP and checks its contents, checksum and reproducibility |
+| `npm run check:security` | Checks permissions, CSP and the built file list, and scans for leaked credentials |
+| `npm run check:docs` | Checks that version numbers agree across files |
+| `npm run check` | Runs all of the above |
+| `npm run benchmark` | CPU timings for reading, matching and CSV at 1k, 10k and 50k tracks |
+| `npm run audit` | `npm audit`, failing at high severity and above |
 
-Linux or macOS:
+The browser tests use mocked responses, so no Apple Music account is needed. Set `CHROMIUM_PATH` to use a different browser for `test:browser`. CI runs the unit tests on every supported Node version and the full check on Linux and Windows.
+
+## Repository layout
+
+```
+src/       extension source (TypeScript)
+public/    manifest, popup HTML/CSS and icons, copied into dist/
+tests/     unit tests
+scripts/   build, packaging and browser test scripts
+assets/    icon source and the INSTALL.txt bundled in the ZIP
+docs/      this file, the architecture notes and README screenshots
+```
+
+## Releasing
+
+1. Bump the version in `package.json` and `public/manifest.json`, then run `npm install` to update the lockfile.
+2. Update the version in `README.md`, `assets/INSTALL.txt`, `.github/SECURITY.md` and the bug report template, and add a `CHANGELOG.md` entry. `npm run check:docs` will tell you if you missed one.
+3. Run `npm run check` and `npm run audit`, then merge through a pull request.
+4. Tag the merged commit (`vX.Y.Z`), run `npm run package`, and attach `artifacts/apple-music-duplicate-finder-vX.Y.Z.zip` and its `.sha256` file to a GitHub release.
+
+Never replace assets on a published release; ship a new version instead.
+
+## Verify a download
+
+Put the ZIP and its `.sha256` file in the same folder, then run:
 
 ```sh
-export CHROMIUM_PATH="/absolute/path/to/chromium"
-```
+# Linux
+sha256sum --check apple-music-duplicate-finder-v1.4.0.zip.sha256
 
-PowerShell:
+# macOS
+shasum -a 256 --check apple-music-duplicate-finder-v1.4.0.zip.sha256
+```
 
 ```powershell
-$env:CHROMIUM_PATH = 'C:\path\to\chrome.exe'
+# Windows
+(Get-FileHash apple-music-duplicate-finder-v1.4.0.zip -Algorithm SHA256).Hash -ieq (Get-Content apple-music-duplicate-finder-v1.4.0.zip.sha256).Split(' ')[0]
 ```
-
-Replace these examples with the actual executable path. The fixture runner uses an isolated headless browser context and does not use your signed-in profile. Apple Music responses are mocked; these tests require no Apple Music login.
-
-## Commands
-
-| Command | Result |
-| --- | --- |
-| `npm run build` | Type-check and build the unpacked extension in `dist/` |
-| `npm test` | Compile TypeScript tests with esbuild and run Node's default isolated test processes; works on Node 22 without version-specific flags |
-| `npm run test:browser` | Build and run the browser fixtures |
-| `npm run test:extension` | Install the actual production extension in a fresh Chromium profile and exercise its real toolbar popup and permissions |
-| `npm run test:package` | Build/package, inspect ZIP contents, verify SHA-256 and tamper rejection, and compare repeated packaging byte-for-byte |
-| `npm run check:security` | Verify built-file/permission/CSP invariants and scan current files for selected credential patterns without printing values |
-| `npm run check:docs` | Verify package, lockfile, manifest, README, release and security version references agree |
-| `npm run benchmark` | Measure reader/pagination, matcher, CSV, filter/sort, retained heap and cancellation CPU cost at 1,000, 10,000, and 50,000 tracks (not network latency) |
-| `npm run audit` | Audit the full dependency tree, including development packages; fail at high severity and above |
-| `npm run check` | Verify docs/versions, build, type-check, run all three test suites, verify packaging, and run static security checks |
-| `npm run package` | Build and create the installation ZIP in `artifacts/` |
-
-The ZIP filename uses the manifest version: version `1.1.2` produces `artifacts/apple-music-duplicate-finder-v1.1.2.zip`. Its checksum is `artifacts/apple-music-duplicate-finder-v1.1.2.zip.sha256`. Historical release 1.0 used a different download filename; do not rename or replace that published asset.
-
-New builds also generate a `.zip.sha256` sidecar. ZIP entry order and timestamps are fixed, so packaging identical build files produces identical bytes. The sidecar detects corruption; it is not a signature or independent proof of the publisher. Published release assets remain unchanged until a new release is explicitly prepared.
-
-## Continuous integration and dependency review
-
-The CI workflow runs on pushes, pull requests, manual dispatch, and a weekly schedule. Linux jobs exercise Node 22.8.0, current Node 22, 24, and 26; a Windows job exercises Node 24. All jobs use `npm ci`, pinned action commits, read-only repository permissions, and no persisted Git credentials. The Node 24 Linux job and the Windows job also run the CPU benchmark. No job publishes a release or extension. Branch protection on `main` requires the five CI checks; private vulnerability reporting, secret scanning with push protection, Dependabot alerts/security updates, and CodeQL default setup are enabled.
-
-Dependabot proposes weekly npm and GitHub Actions updates. Review advisories and changelogs, update the lockfile, and run the complete checks before accepting an update. Do not automatically cross TypeScript major versions just to obtain a newer version. See [dependency security notes](DEPENDENCIES.md).
-
-## Try a local build
-
-After `npm run build`, open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, and select **Load unpacked**. Choose `dist/`. Rebuild and click **Reload** on the Extensions page after changing the code.
-
-Keep the folder in place and edit source files rather than generated output. For checks with a real Apple Music session, follow [Testing](TESTING.md).
-
-## Prepare a release
-
-Follow [the release checklist](RELEASING.md). Keep package, lockfile, manifest, changelog, documentation, release notes, and filenames consistent. Validate the final merged source and the generated ZIP before tagging or publication. Publishing stays manual and requires authorization; CI never publishes a release.
-
-[INSTALL.txt](../INSTALL.txt) supplies the installation instructions packaged in the ZIP. Build output, test screenshots, dependencies, and ZIPs are ignored by Git. `private: true` in `package.json` prevents accidental npm publication; it does not control GitHub visibility or the MIT license.
-
-GitHub's source archive requires building before it can be loaded as an extension.

@@ -643,8 +643,7 @@ scan.addEventListener('click', async () => {
     const coverage = duplicates.unidentified ?
       `\n${number(duplicates.unidentified)} ${duplicates.unidentified === 1 ? 'entry' : 'entries'} had no reliable song ID and ${duplicates.unidentified === 1 ? 'was' : 'were'} excluded from matching.` : '';
     const verification = result.countVerified ? '' : '\nAll API pages read; Apple supplied no total to independently verify the count.';
-    const consistency = result.modificationChecked ?
-      '\nModification markers matched, but Apple provides no atomic snapshot. Avoid editing the playlist during a scan.' :
+    const consistency = result.modificationChecked ? '' :
       '\nApple supplied no modification marker. Same-count edits or reordering cannot be detected; scan again if you edited this playlist.';
     const notesText = (coverage + verification + consistency).trim();
     scanNotes = notesText;

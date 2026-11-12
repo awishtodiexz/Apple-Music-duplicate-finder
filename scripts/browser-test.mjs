@@ -834,7 +834,7 @@ try {
     totalTracks: 12000,
     countVerified: true,
     modificationChecked: true,
-    notes: 'Modification markers matched, but Apple provides no atomic snapshot. Avoid editing the playlist during a scan.',
+    notes: 'Cached fixture data.',
     modified: '2026-10-23T00:00:00Z',
   };
   await popup.evaluate(cache => localStorage.setItem('amdf:last-scan:v1', JSON.stringify(cache)), longScan);
