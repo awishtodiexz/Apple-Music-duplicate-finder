@@ -54,11 +54,125 @@ export function visibleGroups(groups: readonly DuplicateGroup[], query: string, 
   return sortGroups(filterByCopies(filterGroups(groups, query), minCopies), mode);
 }
 
+/**
+ * The one rule for which copy stays: the first position is kept, every later
+ * position is an extra copy. Rows, copy feedback and exports all read it here.
+ */
+export function splitPositions(group: Pick<DuplicateGroup, 'positions'>): { keep: number; extra: number[] } {
+  const [keep = 0, ...extra] = group.positions;
+  return { keep, extra };
+}
+
+// One formatter: toLocaleString builds a new one per call, which dominates drawing 1,200 rows.
+const numberFormat = new Intl.NumberFormat();
+const nbsp = '\u00A0';
+
+/**
+ * A row's positions as "#1 keep · #101 · #245". Each separator is glued to the position
+ * before it with a no-break space, so a wrapped line can end with "·" but never start
+ * with one. `limit` caps how many positions are written; the rest become a "+N more" token.
+ */
+export function positionParts(group: Pick<DuplicateGroup, 'positions'>, limit = Infinity): { keep: string; extras: string } {
+  const { keep, extra } = splitPositions(group);
+  const shown = extra.slice(0, Math.max(0, limit - 1));
+  const hidden = extra.length - shown.length;
+  const tokens = [`#${numberFormat.format(keep)}${nbsp}keep`, ...shown.map(position => `#${numberFormat.format(position)}`)];
+  if (hidden > 0) tokens.push(`+${numberFormat.format(hidden)}${nbsp}more`);
+  const joined = tokens.map((token, index) => index < tokens.length - 1 ? `${token}${nbsp}·` : token);
+  return { keep: joined[0]!, extras: joined.length > 1 ? ` ${joined.slice(1).join(' ')}` : '' };
+}
+
+const groupKey = (group: DuplicateGroup): string => `${group.name.trim().toLowerCase()}\u0000${group.artist.trim().toLowerCase()}`;
+
+/**
+ * Identities of rows whose name and artist match another row. Groups are keyed by Apple Music
+ * ID, so two such rows are different Apple Music songs (another version or release) that happen
+ * to share a title; nothing else in the scan data tells them apart.
+ */
+export function lookalikeIdentities(groups: readonly DuplicateGroup[]): Set<string> {
+  const byKey = new Map<string, DuplicateGroup[]>();
+  for (const group of groups) {
+    const key = groupKey(group);
+    byKey.set(key, [...(byKey.get(key) ?? []), group]);
+  }
+  const lookalikes = new Set<string>();
+  for (const sharing of byKey.values()) {
+    if (sharing.length > 1) for (const group of sharing) lookalikes.add(group.identity);
+  }
+  return lookalikes;
+}
+
+/** The Apple Music ID a group was matched on, without the catalog/library prefix. */
+export function appleMusicId(group: Pick<DuplicateGroup, 'identity'>): string {
+  return group.identity.replace(/^(?:catalog|library):/, '');
+}
+
+export interface ExportLabels {
+  copy: string;
+  copyName: string;
+  csv: string;
+  csvName: string;
+  copied: string;
+  downloaded: string;
+}
+
+/**
+ * What Copy and CSV export, with the count. They export every song matching the current
+ * filters, which is more than the rows drawn so far, so the count is the filtered total.
+ */
+export function exportLabels(count: number, filtered: boolean): ExportLabels {
+  const n = count.toLocaleString();
+  const songs = count === 1 ? 'song' : 'songs';
+  if (count === 0) {
+    return { copy: 'Copy all', copyName: 'Copy all repeated songs', csv: 'CSV', csvName: 'Download repeated songs as CSV',
+      copied: '', downloaded: '' };
+  }
+  return {
+    copy: `Copy all ${n}`,
+    copyName: `Copy all ${n} ${filtered ? 'matching ' : ''}repeated ${songs}`,
+    csv: `CSV (${n})`,
+    csvName: `Download CSV (${n}) of ${filtered ? 'matching' : 'all'} repeated songs`,
+    copied: filtered ? `Copied ${n} matching ${songs}.` : `Copied all ${n} ${songs}.`,
+    downloaded: filtered ? `Downloaded ${n} matching ${songs} as CSV.` : `Downloaded all ${n} ${songs} as CSV.`,
+  };
+}
+
+export type ScanOutcome = 'empty' | 'unchecked' | 'clean' | 'duplicates';
+
+export function scanOutcome(summary: ResultSummary): ScanOutcome {
+  if (summary.scanned === 0) return 'empty';
+  if (summary.groups > 0) return 'duplicates';
+  // Without any Apple Music IDs, "no repeats" would claim a check that never ran.
+  return summary.unidentified === summary.scanned ? 'unchecked' : 'clean';
+}
+
+export const outcomeTitle: Record<ScanOutcome, string> = {
+  empty: 'This playlist is empty',
+  unchecked: 'Nothing could be checked',
+  clean: 'No repeated songs',
+  duplicates: 'Scan complete',
+};
+
+function plural(count: number, one: string, many = `${one}s`): string {
+  return `${count.toLocaleString()} ${count === 1 ? one : many}`;
+}
+
 export function summaryLine(summary: ResultSummary): string {
-  if (summary.groups === 0) return `${summary.scanned.toLocaleString()} songs scanned\nNo duplicate songs found.`;
-  const songs = `${summary.groups.toLocaleString()} ${summary.groups === 1 ? 'song appears' : 'songs appear'} more than once`;
-  const extras = `${summary.extraCopies.toLocaleString()} ${summary.extraCopies === 1 ? 'extra copy' : 'extra copies'}`;
-  return `${summary.scanned.toLocaleString()} songs scanned\n${songs} · ${extras}`;
+  switch (scanOutcome(summary)) {
+    case 'empty':
+      return 'There are no songs to check.';
+    case 'unchecked':
+      return `${plural(summary.scanned, 'song')} had no Apple Music ID, so repeats could not be checked.`;
+    case 'clean': {
+      const checked = `${plural(summary.scanned, 'song')} checked · no repeats found`;
+      if (summary.unidentified === 0) return checked;
+      return `${checked}\n${plural(summary.unidentified, 'song')} had no Apple Music ID and ` +
+        `${summary.unidentified === 1 ? 'was' : 'were'} skipped.`;
+    }
+    case 'duplicates':
+      return `${plural(summary.scanned, 'song')} checked · ${plural(summary.groups, 'repeated song')} · ` +
+        plural(summary.extraCopies, 'extra copy', 'extra copies');
+  }
 }
 
 export function formatResultsText(playlistName: string, groups: readonly DuplicateGroup[],

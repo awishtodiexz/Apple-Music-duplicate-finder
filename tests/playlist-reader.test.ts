@@ -323,6 +323,39 @@ test('transient transport failures are retried and the scan still completes in o
   assert.equal(result.tracks.length, 245);
   assert.equal(result.tracks[244]?.position, 245);
 });
+test('a retry reports its attempt and the songs retrieved so far before it waits', async () => {
+  const { source } = sourceFor(245);
+  const page = source.page;
+  let failures = 0;
+  source.page = async offset => {
+    if (offset === 100 && failures < 2) { failures++; throw new ScanError('SERVER'); }
+    return page(offset);
+  };
+  const events: string[] = [];
+  await readPlaylist(source, p => {
+    if (p.phase === 'retrying') events.push(`retrying ${p.attempt}/${p.attempts} at ${p.retrieved} of ${p.total}`);
+    else events.push(`${p.phase} ${p.retrieved}`);
+  });
+  assert.deepEqual(events, [
+    'reading 0', 'reading 100',
+    'retrying 1/2 at 100 of 245', 'retrying 2/2 at 100 of 245',
+    'reading 200', 'reading 245', 'validating 245',
+  ]);
+});
+test('a retry before the first page reports zero songs and no total yet', async () => {
+  let calls = 0;
+  const source: PlaylistSource = {
+    metadata: async () => {
+      calls++;
+      if (calls === 1) throw new ScanError('NETWORK');
+      return { ...info, total: 1 };
+    },
+    page: async () => ({ tracks: entries(1), total: 1, nextOffset: null }),
+  };
+  const first: unknown[] = [];
+  await readPlaylist(source, p => { if (p.phase === 'retrying') first.push([p.attempt, p.retrieved, p.total]); });
+  assert.deepEqual(first, [[1, 0, null]]);
+});
 test('server retry-after guidance replaces the short fallback delay', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let calls = 0;

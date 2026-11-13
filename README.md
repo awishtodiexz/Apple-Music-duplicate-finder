@@ -24,7 +24,7 @@ Find the songs that show up more than once in your Apple Music playlists.
 - **Positions.** See every spot in the playlist where a song appears.
 - **Search, sort and export.** Filter the list, copy it, or save it as CSV.
 - **Read-only.** It never edits, reorders or deletes anything. You decide what to remove.
-- **Remembers your last scan** and tells you when the playlist has changed since.
+- **Remembers your last scan** and tells you when the playlist has changed since then.
 - **Light and dark themes**, keyboard support, and a toolbar badge with the duplicate count.
 
 ## Install
@@ -43,10 +43,10 @@ To update, extract the new ZIP over the same folder and click **Reload** on the 
 ## Usage
 
 1. Open a playlist on [music.apple.com](https://music.apple.com) while signed in.
-2. Click the extension icon and press **Scan for Duplicates**.
+2. Click the extension icon and press **Scan for duplicates**.
 3. Keep the popup open until it finishes. Clicking outside closes it, so use **Open in a window** for long playlists.
 
-A result like *"2 copies · #12 · #84"* means the song is the 12th and 84th track. Remove the extra copy in Apple Music, then scan again.
+A result like *"2 copies · 1 extra"* with positions *"#12 keep · #84"* means the song appears at positions 12 and 84. Remove the extra copy in Apple Music, then scan again.
 
 Scans stop after a ten-minute limit or 50,000 songs, and a failed scan never shows partial results.
 
@@ -55,12 +55,12 @@ Scans stop after a ten-minute limit or 50,000 songs, and a failed scan never sho
 | Message | What to do |
 | --- | --- |
 | Open a playlist | Go to a playlist on music.apple.com and reopen the popup. |
-| MusicKit unavailable | Wait for the player to load, or reload the page. |
-| Sign in | Your Apple Music session expired. Sign in again. |
+| The Apple Music player hasn't finished loading | Wait for the player to load, then press Retry connection. |
+| Sign in to Apple Music in this tab | Your Apple Music session expired. Sign in again, then press Retry connection. |
 
 ## Privacy
 
-Everything runs in your browser. The extension talks only to Apple Music, using the session already open in your tab. No accounts, no analytics, no servers. It asks for just two permissions, `activeTab` and `scripting`, and the last scan is stored locally until you press **Clear**.
+Everything runs in your browser. The extension talks only to Apple Music, using the session already open in your tab. No accounts, no analytics, no servers. It asks for just two permissions, `activeTab` and `scripting`, and the last scan is stored locally until you press **Clear results**.
 
 Curious how it works? See [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

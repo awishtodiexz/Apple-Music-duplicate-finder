@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The results copy button now reads **Copy all** with the number of matching songs, and the oversized-results warning names the same action.
+
 ## [1.4.2](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.4.2) (2026-11-13)
 
 ### Changed
@@ -31,7 +37,7 @@
 ### Added
 
 - Support for catalog playlists, using the storefront from the playlist URL.
-- A failed or cancelled rescan keeps the last completed result on screen, clearly labelled.
+- A failed or cancelled rescan keeps the last completed result on screen, clearly labeled.
 - Accessibility improvements: proper text direction for song names, better contrast, forced-colors support and expandable position lists that keep focus.
 
 ### Changed

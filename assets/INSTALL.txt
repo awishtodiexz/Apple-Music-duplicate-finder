@@ -8,7 +8,7 @@ INSTALL
 
 USE
 1. Open a playlist on https://music.apple.com while signed in.
-2. Click the extension icon and press Scan for Duplicates.
+2. Click the extension icon and press Scan for duplicates.
 3. Keep the popup open until the scan finishes, or use Open in a window.
 
 UPDATE
