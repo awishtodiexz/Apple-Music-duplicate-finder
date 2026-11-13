@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.2](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.4.2) (2026-11-13)
+
+### Changed
+
+- Each repeated song shows a compact **3 copies** badge and its positions as `#1 · #101 · #245`, instead of two full sentences.
+- The toolbar's copy button is now **Copy list**, so it no longer looks like each song's **Copy**. **Copy list** and **CSV** use neutral colors, leaving the accent color for **Scan again**.
+- **Clear results**, **Copy** and **Show all positions** are smaller outlined buttons, and links are no longer underlined outside of sentences.
+- The search field has a search icon, and both dropdowns have matching arrows.
+
 ## [1.4.1](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.4.1) (2026-11-12)
 
 ### Changed

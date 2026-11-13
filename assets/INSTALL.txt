@@ -1,4 +1,4 @@
-Apple Music Duplicate Finder v1.4.1
+Apple Music Duplicate Finder v1.4.2
 Requires Chrome or Edge 111 or newer.
 
 INSTALL
