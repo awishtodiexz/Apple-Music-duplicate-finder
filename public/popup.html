@@ -42,7 +42,9 @@
         </div>
         <div id="results-toolbar">
           <label class="visually-hidden" for="results-search">Search repeated songs</label>
-          <input id="results-search" type="search" placeholder="Search song or artist" autocomplete="off" spellcheck="false">
+          <div class="search-field">
+            <input id="results-search" type="search" placeholder="Search song or artist" autocomplete="off" spellcheck="false">
+          </div>
           <label class="visually-hidden" for="results-sort">Sort repeated songs</label>
           <select id="results-sort">
             <option value="playlist">Playlist order</option>
@@ -51,7 +53,7 @@
             <option value="artist">Artist A–Z</option>
           </select>
           <div class="result-actions">
-            <button id="copy-results" class="secondary" type="button" aria-label="Copy visible results">Copy</button>
+            <button id="copy-results" class="secondary" type="button" aria-label="Copy list of visible results">Copy list</button>
             <button id="download-results" class="secondary" type="button" aria-label="Download visible results as CSV">CSV</button>
           </div>
         </div>

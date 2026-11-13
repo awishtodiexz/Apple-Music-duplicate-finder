@@ -168,8 +168,8 @@ try {
     await scan(popup);
     assert.equal(await popup.evaluate(() => document.querySelector('#status-title').textContent), 'Scan complete');
     assert.equal(await popup.evaluate(() => document.querySelector('#version').textContent), `v${version}`);
-    assert.equal(await popup.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: 1, 101, 245');
-    assert.equal(await popup.evaluate(() => document.querySelector('.counts').textContent), 'This song appears 3 times');
+    assert.equal(await popup.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: #1 · #101 · #245');
+    assert.equal(await popup.evaluate(() => document.querySelector('.counts').textContent), '3 copies');
     assert.equal(await popup.evaluate(() => document.querySelectorAll('img').length), 0);
     // Connect metadata (reused as the scan baseline) + 3 track pages + validation metadata.
     assert.equal((await apple.evaluate(() => window.requests)).length, 5);
@@ -221,7 +221,7 @@ try {
   assert.equal(await resilient.evaluate(() => document.querySelector('#status-title').textContent), 'Scan failed');
   assert.match(await resilient.evaluate(() => document.querySelector('#status-detail').textContent), /Showing the last completed scan from/);
   assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
-  assert.equal(await resilient.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: 1, 101, 245');
+  assert.equal(await resilient.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: #1 · #101 · #245');
   await until(() => badgeIs(resilient, '1'), 'badge after failed rescan');
   await apple.evaluate(() => { window.scenario = 'duplicates'; });
   await resilient.evaluate(() => document.querySelector('#scan').click());

@@ -197,6 +197,16 @@ function currentGroups(): DuplicateGroup[] {
   return visibleGroups(groups, resultsSearch.value, mode || 'playlist', Number(resultsMin.value) || 2);
 }
 
+/** Writes "#1 · #101 · #245"; the hidden label keeps the meaning for screen readers. */
+function renderPositions(target: HTMLElement, shown: readonly number[], hiddenCount: number): void {
+  const label = document.createElement('span');
+  label.className = 'visually-hidden';
+  label.textContent = 'Playlist positions: ';
+  const text = shown.map(position => `#${number(position)}`).join(' · ') +
+    (hiddenCount > 0 ? ` · +${number(hiddenCount)} more` : '');
+  target.replaceChildren(label, text);
+}
+
 function appendGroup(group: DuplicateGroup): void {
   const item = document.createElement('li');
   item.tabIndex = -1;
@@ -217,30 +227,27 @@ function appendGroup(group: DuplicateGroup): void {
   }
   const counts = document.createElement('p');
   counts.className = 'counts';
-  counts.textContent = group.copies === 2 ? 'This song appears twice' : `This song appears ${number(group.copies)} times`;
+  counts.textContent = `${number(group.copies)} copies`;
   item.append(counts);
   const positions = document.createElement('p');
   positions.className = 'positions';
   const inline = group.positions.slice(0, maxInlinePositions);
   const hiddenCount = group.positions.length - inline.length;
-  positions.textContent = `Playlist positions: ${inline.map(number).join(', ')}` +
-    (hiddenCount > 0 ? ` …and ${number(hiddenCount)} more` : '');
+  renderPositions(positions, inline, hiddenCount);
   item.append(positions);
   if (hiddenCount > 0) {
     const showAll = document.createElement('button');
     showAll.type = 'button';
     showAll.className = 'more-positions';
     showAll.setAttribute('aria-expanded', 'false');
-    const collapsedText = positions.textContent;
-    const allText = `Playlist positions: ${group.positions.map(number).join(', ')}`;
     const groupLabel = group.artist.trim() ? `${group.name} by ${group.artist}` : group.name;
     showAll.textContent = `Show all ${number(group.positions.length)} positions`;
     showAll.addEventListener('click', () => {
       const expanded = showAll.getAttribute('aria-expanded') !== 'true';
       showAll.setAttribute('aria-expanded', String(expanded));
       showAll.textContent = expanded ? 'Show fewer positions' : `Show all ${number(group.positions.length)} positions`;
-      positions.textContent = expanded ? allText : collapsedText;
       if (expanded) {
+        renderPositions(positions, group.positions, 0);
         // Thousands of positions stay inside a short scroll area, and the
         // toggle keeps focus so a keyboard user can collapse it again.
         positions.tabIndex = 0;
@@ -248,6 +255,7 @@ function appendGroup(group: DuplicateGroup): void {
         positions.setAttribute('aria-label', `All playlist positions for ${groupLabel}`);
         positions.setAttribute('data-expanded', 'true');
       } else {
+        renderPositions(positions, inline, hiddenCount);
         positions.removeAttribute('tabindex');
         positions.removeAttribute('role');
         positions.removeAttribute('aria-label');
@@ -367,7 +375,7 @@ function formatDate(timestamp: number): string {
 /** Explains that results on screen are the previous completed scan, never the failed one. */
 function lastCompletedNotice(completed: CompletedScan): string {
   const persistence = completed.cached ? '' :
-    '\nThese results are too large to remember after the popup closes; use Copy or CSV if you need them.';
+    '\nThese results are too large to remember after the popup closes; use Copy list or CSV if you need them.';
   return `Showing the last completed scan from ${formatDate(completed.scannedAt)}.${persistence}\n` +
     summaryLine(summarize(completed.totalTracks, completed.groups, completed.unidentified));
 }
@@ -390,7 +398,7 @@ function cacheCurrent(playlist: PlaylistRef, info: PlaylistInfo, countVerified: 
   };
   const saved = saveCachedScan(cached);
   if (!saved) {
-    resultsFeedback.textContent = 'Results are too large to remember after the popup closes. Use Copy or CSV if you need them.';
+    resultsFeedback.textContent = 'Results are too large to remember after the popup closes. Use Copy list or CSV if you need them.';
   }
   clearResults.hidden = groups.length === 0 && !saved;
   return saved;
@@ -651,7 +659,7 @@ scan.addEventListener('click', async () => {
     const scannedAt = Date.now();
     setStatus(hasGroups ? 'Scan complete' : duplicates.unidentified ?
       'No duplicates among identified songs' : 'No exact duplicates found',
-      `${summaryLine(resultSummary)}${hasGroups ? '' : coverage + verification + consistency}\nScanned ${formatDate(scannedAt)}.`);
+      `${summaryLine(resultSummary)}${hasGroups ? '' : coverage + verification + consistency}\nScanned ${formatDate(scannedAt)}`);
     // Only this completed, fully validated scan may replace the last success.
     applyCompleted({
       playlistName: result.info.name,

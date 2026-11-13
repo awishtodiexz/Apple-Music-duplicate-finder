@@ -46,7 +46,7 @@ To update, extract the new ZIP over the same folder and click **Reload** on the 
 2. Click the extension icon and press **Scan for Duplicates**.
 3. Keep the popup open until it finishes. Clicking outside closes it, so use **Open in a window** for long playlists.
 
-A result like *"appears twice · positions 12, 84"* means the song is the 12th and 84th track. Remove the extra copy in Apple Music, then scan again.
+A result like *"2 copies · #12 · #84"* means the song is the 12th and 84th track. Remove the extra copy in Apple Music, then scan again.
 
 Scans stop after a ten-minute limit or 50,000 songs, and a failed scan never shows partial results.
 
