@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.2](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.6.2) (2026-11-14)
+
+- Fix the popup failing to open in 1.6.1 with `Missing popup element`. Its build paired new popup markup with old popup code.
+- Make the popup a plain read-only report. Remove the Start cleanup button, removal checklist and Verify changes view, which made it look like the extension could delete songs. Rows now show `3 copies` instead of `2 to remove`, positions read `#1 first` instead of `suggested keep`, and a rescan shows a short "Since your last scan" note above the list.
+
 ## [1.6.1](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.6.1) (2026-11-14)
 
 - Rename the extension to Apple Music Playlist Duplicate Finder. The manifest, popup, copied results, repository, npm package and release ZIP names now match.

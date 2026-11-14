@@ -27,7 +27,7 @@ The last completed scan and the theme choice are kept in `localStorage` (`amdf:l
 
 The scan-window preference is saved separately (`amdf:scan-window:v1`) and defaults to a separate window. The popup hands a scan to a window pinned to the source tab. Its startup request is consumed once and checked against the connected playlist before scanning. Reloading the window restores results without starting another scan.
 
-The removal checklist flattens all extra positions into one descending list and renders 50 entries at a time. Checkmarks belong to the completed scan in memory. Successful rescans reset them; failed or canceled scans preserve them. Comparisons use exact duplicate identities from the previous completed scan, including a restored cached scan. They are shown for the current session and withheld when either scan contains unidentified songs.
+Rescan comparisons use exact duplicate identities from the previous completed scan, including a restored cached scan. They are shown for the current session and withheld when either scan contains unidentified songs.
 
 ## Limitations
 
@@ -49,4 +49,4 @@ The removal checklist flattens all extra positions into one descending list and 
 | [`storage.ts`](../src/storage.ts) | Cached last scan and theme preference |
 | [`theme.ts`](../src/theme.ts), [`errors.ts`](../src/errors.ts), [`types.ts`](../src/types.ts) | Shared helpers and types |
 
-The popup presents one workflow view at a time: overview, cleanup, or verification. A changed completed snapshot selects overview for an initial scan and verification for a rescan; restoring the same snapshot after failure preserves the current view and checkmarks. Verify changes invokes the real playlist reader. Checkmarks never determine verification results. Song details, result tools, scan details, and settings use native disclosures. Identification and freshness warnings remain visible outside collapsed song details.
+The popup has one read-only results view. It never suggests which copy to keep or remove. A rescan adds a passive comparison note above the same list. Song details, result tools, scan details, and settings use native disclosures. Identification and freshness warnings remain visible outside collapsed song details.

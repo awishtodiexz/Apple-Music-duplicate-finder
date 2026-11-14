@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { appleMusicId, compareScans, comparisonText, csvFilename, exportLabels, filterGroups, formatGroupText, formatResultsText, lookalikeIdentities, outcomeTitle, positionParts, removalChecklist, scanOutcome, sortGroups, splitPositions, summarize, summaryLine, toCsv, visibleGroups } from '../src/results';
+import { appleMusicId, compareScans, comparisonText, csvFilename, exportLabels, filterGroups, formatGroupText, formatResultsText, lookalikeIdentities, outcomeTitle, positionParts, scanOutcome, sortGroups, splitPositions, summarize, summaryLine, toCsv, visibleGroups } from '../src/results';
 import type { DuplicateGroup } from '../src/types';
 
 const group = (name: string, artist: string, positions: number[]): DuplicateGroup => ({
@@ -17,14 +17,6 @@ const groups = [
   group('Middle, Song', 'Artist A', [5, 6]),
 ];
 
-test('removal checklist interleaves songs in descending position and excludes every kept copy', () => {
-  const entries = removalChecklist(groups);
-  assert.deepEqual(entries.map(entry => entry.position), [9, 6, 4, 3]);
-  assert.deepEqual(entries.map(entry => entry.group.name), ['Zebra', 'Middle, Song', 'Alpha', 'Alpha']);
-  assert.deepEqual(groups.map(group => group.positions), [[1, 9], [2, 3, 4], [5, 6]]);
-  assert.deepEqual(removalChecklist([]), []);
-});
-
 test('rescan comparison tracks exact identities even when counts balance or positions and names change', () => {
   const before = [group('A', 'Artist', [1, 3, 8]), group('B', 'Artist', [2, 9])];
   const after = [{ ...group('Renamed A', 'Artist', [1, 4]), identity: 'catalog:A' }, group('C', 'Artist', [2, 5, 6])];
@@ -33,15 +25,15 @@ test('rescan comparison tracks exact identities even when counts balance or posi
   assert.equal(comparison.remaining, 3);
   assert.deepEqual(comparison.resolved.map(group => group.name), ['B']);
   assert.deepEqual(comparison.added.map(group => group.name), ['C']);
-  assert.match(comparisonText(comparison), /count unchanged.*3 extra copies remaining/);
+  assert.match(comparisonText(comparison), /count unchanged.*3 extra copies now/);
 });
 
-test('comparison describes partial cleanup, a clean playlist, and increasing duplicates', () => {
+test('comparison describes fewer repeats, no repeats, and increasing duplicates', () => {
   const before = [group('A', 'Artist', [1, 3, 8])];
   const partial = compareScans(before, [group('A', 'Artist', [1, 3])]);
-  assert.match(comparisonText(partial), /1 fewer extra copy · 1 extra copy remaining/);
+  assert.match(comparisonText(partial), /1 fewer extra copy · 1 extra copy now/);
   assert.equal(partial.resolved.length, 0);
-  assert.match(comparisonText(compareScans(before, [])), /2 fewer extra copies · 0 extra copies remaining/);
+  assert.match(comparisonText(compareScans(before, [])), /2 fewer extra copies · 0 extra copies now/);
   assert.match(comparisonText(compareScans([], before)), /2 more extra copies/);
 });
 
@@ -68,28 +60,28 @@ test('the minimum-copies filter drops smaller groups and keeps the rest', () => 
   assert.equal(visibleGroups(groups, '', 'playlist', Number.NaN).length, 3);
 });
 
-test('the first position is the copy to keep and every later one is extra', () => {
-  assert.deepEqual(splitPositions(group('Alpha', 'Artist C', [2, 3, 4])), { keep: 2, extra: [3, 4] });
-  assert.deepEqual(splitPositions(group('Pair', 'A', [7, 9])), { keep: 7, extra: [9] });
+test('the first position is listed apart from every later one', () => {
+  assert.deepEqual(splitPositions(group('Alpha', 'Artist C', [2, 3, 4])), { first: 2, later: [3, 4] });
+  assert.deepEqual(splitPositions(group('Pair', 'A', [7, 9])), { first: 7, later: [9] });
   const split = splitPositions(groups[1]!);
-  assert.equal(split.extra.length, groups[1]!.extraCopies);
+  assert.equal(split.later.length, groups[1]!.extraCopies);
 });
 
-test('positions read "#1 keep · #101 · #245" and never wrap a line onto a separator', () => {
+test('positions read "#1 first · #101 · #245" and never wrap a line onto a separator', () => {
   const parts = positionParts(group('Numb', 'Linkin Park', [1, 101, 245]));
-  assert.equal(parts.keep + parts.extras, '#1\u00A0keep\u00A0· #101\u00A0· #245');
+  assert.equal(parts.first + parts.later, '#1\u00A0first\u00A0· #101\u00A0· #245');
   // Every separator is glued to the position before it, so only a space can break a line.
-  assert.doesNotMatch(parts.keep + parts.extras, / ·/);
-  assert.equal(positionParts(group('Pair', 'A', [1, 2000])).extras, ' #2,000');
+  assert.doesNotMatch(parts.first + parts.later, / ·/);
+  assert.equal(positionParts(group('Pair', 'A', [1, 2000])).later, ' #2,000');
 });
 
 test('a long position list is capped and says how many it left out', () => {
   const many = group('Loop', 'A', Array.from({ length: 6000 }, (_, index) => index + 1));
   const parts = positionParts(many, 50);
-  assert.equal(parts.keep, '#1\u00A0keep\u00A0·');
-  assert.equal(parts.extras.split('#').length - 1, 49);
-  assert.ok(parts.extras.endsWith('+5,950\u00A0more'));
-  assert.ok(positionParts(many).extras.endsWith('#6,000'));
+  assert.equal(parts.first, '#1\u00A0first\u00A0·');
+  assert.equal(parts.later.split('#').length - 1, 49);
+  assert.ok(parts.later.endsWith('+5,950\u00A0more'));
+  assert.ok(positionParts(many).later.endsWith('#6,000'));
 });
 
 test('rows that share a name and artist are flagged, and only those', () => {
