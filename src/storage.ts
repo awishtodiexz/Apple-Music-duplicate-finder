@@ -200,3 +200,12 @@ export function saveThemePreference(preference: ThemePreference): void {
   if (!store) return;
   try { store.setItem(themeKey, preference); } catch { /* ignore */ }
 }
+
+/** Scans use a persistent window unless the user explicitly chooses the popup. */
+export function loadScanWindowPreference(): boolean {
+  try { return storage()?.getItem('amdf:scan-window:v1') !== 'false'; } catch { return true; }
+}
+
+export function saveScanWindowPreference(enabled: boolean): void {
+  try { storage()?.setItem('amdf:scan-window:v1', String(enabled)); } catch { /* ignore */ }
+}

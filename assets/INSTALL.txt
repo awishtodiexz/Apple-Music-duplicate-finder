@@ -1,4 +1,4 @@
-Apple Music Duplicate Finder v1.5.1
+Apple Music Duplicate Finder v1.6
 Requires Chrome or Edge 111 or newer.
 
 INSTALL
@@ -9,7 +9,9 @@ INSTALL
 USE
 1. Open a playlist on https://music.apple.com while signed in.
 2. Click the extension icon and press Scan for duplicates.
-3. Keep the popup open until the scan finishes, or use Open in a window.
+3. Keep the separate scan window open until the scan finishes. You can click back into Apple Music while it runs.
+4. Choose Start cleanup, remove copies in Apple Music, and mark your progress.
+5. Choose Verify changes to run a fresh scan. Checkmarks alone do not confirm removal.
 
 UPDATE
 Extract the new ZIP over this folder and click Reload on the extensions page.

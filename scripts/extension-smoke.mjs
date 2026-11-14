@@ -156,6 +156,12 @@ try {
       return state.document !== previousDocument && ['Ready to scan', 'Could not connect'].includes(state.title);
     }, 'fresh popup initialization for ' + scenario);
     assert.equal(await activePopup.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 0);
+    // Existing popup scenarios exercise the saved inline-scan choice.
+    await activePopup.evaluate(() => {
+      const option = document.querySelector('#scan-window');
+      option.checked = false;
+      option.dispatchEvent(new Event('change'));
+    });
     return activePopup;
   }
   async function scan(popup) {
@@ -180,12 +186,12 @@ try {
     await assertPopupWidth(popup, 'after scan');
     assert.equal(await popup.evaluate(() => document.querySelector('#status-title').textContent), 'Scan complete');
     assert.equal(await popup.evaluate(() => document.querySelector('#version').textContent), `v${version}`);
-    assert.equal(await popup.evaluate(() => document.querySelector('.positions').textContent.replace(/\u00a0/g, ' ')), 'Playlist positions: #1 keep · #101 · #245');
+    assert.equal(await popup.evaluate(() => document.querySelector('.positions').textContent.replace(/\u00a0/g, ' ')), 'Playlist positions: #1 suggested keep · #101 · #245');
     assert.equal(await popup.evaluate(() => document.querySelector('.counts').textContent), '3 copies · 2 extra');
     // The real toolbar popup shows the first result near the top instead of below the fold.
     const firstRowTop = await popup.evaluate(() => Math.round(document.querySelector('#duplicate-list li').getBoundingClientRect().top));
-    // Font metrics differ by platform (292px on Windows, about 308px on Linux); the old layout was 485px or more.
-    assert.ok(firstRowTop <= 320, `first result row starts at ${firstRowTop}px in the real popup`);
+    // The result headline and cleanup action lead, with the first collapsed song still above the fold.
+    assert.ok(firstRowTop <= 420, `first result row starts at ${firstRowTop}px in the real popup`);
     assert.equal(await popup.evaluate(() => document.querySelectorAll('#results-scroll[tabindex], #results-scroll[role]').length), 0);
     assert.equal(await popup.evaluate(() => document.querySelectorAll('img').length), 0);
     // Connect metadata (reused as the scan baseline) + 3 track pages + validation metadata.
@@ -238,7 +244,7 @@ try {
   assert.equal(await resilient.evaluate(() => document.querySelector('#status-title').textContent), 'Scan failed');
   assert.match(await resilient.evaluate(() => document.querySelector('#status-detail').textContent), /Showing your last scan from/);
   assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
-  assert.equal(await resilient.evaluate(() => document.querySelector('.positions').textContent.replace(/\u00a0/g, ' ')), 'Playlist positions: #1 keep · #101 · #245');
+  assert.equal(await resilient.evaluate(() => document.querySelector('.positions').textContent.replace(/\u00a0/g, ' ')), 'Playlist positions: #1 suggested keep · #101 · #245');
   await until(() => badgeIs(resilient, '1'), 'badge after failed rescan');
   await apple.evaluate(() => { window.scenario = 'duplicates'; });
   await resilient.evaluate(() => document.querySelector('#scan').click());
@@ -288,6 +294,44 @@ try {
   await until(async () => ['Ready to scan', 'Showing last scan'].includes(await popoutTitle()), 'pop-out reconnects when its tab returns');
   await popped.close();
   console.log('PASS: pop-out window opens from the real toolbar popup, connects to the same tab and follows it off the playlist');
+
+  await apple.goto('https://music.apple.com/us/library/playlist/p.fixture');
+  const handoff = await open('duplicates');
+  await handoff.evaluate(() => localStorage.removeItem('amdf:scan-window:v1'));
+  await handoff.reload();
+  await until(() => handoff.evaluate(() => !document.querySelector('#scan').disabled && document.querySelector('#scan-window').checked),
+    'default scan-window preference');
+  assert.equal(await handoff.evaluate(() => document.querySelector('#scan-window').checked), true);
+  await apple.evaluate(() => { window.fixtureDelay = 500; window.requests = []; });
+  await handoff.evaluate(() => document.querySelector('#scan').click());
+  const scanTarget = await until(async () => (await cdp.send('Target.getTargets')).targetInfos
+    .find(target => target.url.includes('/popup.html?tab=')), 'automatic scan window');
+  const scanWindow = await attach(scanTarget.targetId);
+  await apple.waitForFunction(() => window.requests.some(path => path.includes('/tracks?')));
+  // Close the original toolbar popup if Chrome has not already dismissed it,
+  // then focus the music tab while the independent window continues scanning.
+  for (const target of (await cdp.send('Target.getTargets')).targetInfos) {
+    if (target.url === `chrome-extension://${id}/popup.html`) await cdp.send('Target.closeTarget', { targetId: target.targetId });
+  }
+  activePopup = null;
+  await apple.bringToFront();
+  await until(() => scanWindow.evaluate(() => document.querySelector('#status-title').textContent === 'Scan complete'),
+    'scan finishes after original popup closes and focus moves away');
+  assert.equal(await scanWindow.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
+  assert.equal(await scanWindow.evaluate(() => new URL(location.href).searchParams.has('scan')), false);
+  await scanWindow.evaluate(() => document.querySelector('#checklist-toggle').click());
+  assert.deepEqual(await scanWindow.evaluate(() => [...document.querySelectorAll('#checklist-items span')].map(row => row.textContent)),
+    ['#245 · Numb — Linkin Park', '#101 · Numb — Linkin Park']);
+  await apple.evaluate(() => { window.fixtureDelay = 25; window.scenario = 'distinct'; });
+  await scanWindow.evaluate(() => document.querySelector('#verify-changes').click());
+  await until(() => scanWindow.evaluate(() => document.querySelector('#status-title').textContent === 'No repeated songs'), 'cleanup rescan');
+  assert.match(await scanWindow.evaluate(() => document.querySelector('#comparison-summary').textContent),
+    /2 fewer extra copies · 0 extra copies remaining/);
+  const audit = await scanWindow.evaluate(auditAccessibility);
+  assert.deepEqual(audit.findings, []);
+  await scanWindow.evaluate(() => localStorage.clear());
+  await scanWindow.close();
+  console.log('PASS: default scan window survives toolbar-popup closure and focus loss; real extension checklist and cleanup comparison');
 
   const blocked = await open('duplicates');
   await apple.goto('https://blocked.test/');

@@ -50,6 +50,25 @@ button:disabled { border: 1px solid var(--line); background: transparent; color:
 #results-empty .link-button { text-decoration: underline; text-underline-offset: 2px; }
 #pop-out::after { content: " \2197" / ""; }
 .actions { display: flex; gap: 8px; align-items: center; }
+.check-option { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); cursor: pointer; }
+.check-option input, #checklist-items input { accent-color: var(--accent); flex-shrink: 0; }
+#scan-window-option { margin-bottom: 10px; text-align: left; }
+.results-heading { display: flex; gap: 8px; align-items: baseline; }
+.results-heading h2 { flex: 1; min-width: 0; }
+#checklist-toggle { flex-shrink: 0; min-height: 24px; }
+#scan-comparison { border-left: 3px solid var(--accent); padding: 8px 10px; background: var(--soft); border-radius: 4px; }
+#scan-comparison p { white-space: pre-line; font-size: 12px; line-height: 1.5; margin: 5px 0 0; }
+summary { cursor: pointer; font-size: 12px; line-height: 1.5; }
+#resolved-details { margin-top: 6px; }
+#resolved-songs { overflow-wrap: anywhere; }
+#removal-checklist { margin: 6px 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+#checklist-title { font-size: 13px; margin: 0; }
+#removal-checklist p { font-size: 12px; line-height: 1.5; margin: 6px 0; color: var(--muted); }
+#checklist-items { list-style: none; padding: 0; margin: 0; }
+#checklist-items li { display: block; padding: 7px 0; }
+#checklist-items label { display: flex; align-items: baseline; gap: 7px; font-size: 12px; line-height: 1.5; cursor: pointer; }
+#checklist-items label:has(input:checked) span { text-decoration: line-through; color: var(--muted); }
+.new-repeat { display: inline-block; margin-left: 6px; color: var(--accent); font-size: 11px; font-weight: 600; }
 #scan { flex: 1 1 auto; width: auto; min-width: 0; }
 #status { padding: 0 1px; }
 #status h2 { font-size: 14px; line-height: 1.4; }
@@ -184,4 +203,76 @@ footer { border-top: 1px solid var(--line); margin: 18px var(--gutter) 0; paddin
 }
 @media (max-width: 340px) {
   :root { --gutter: 18px; }
+}
+
+/* Each stage has one main action and one list. Supporting controls stay nearby
+   without competing with the result or the cleanup task. */
+header, .has-results header { grid-template-areas: "title toggle"; padding-top: 16px; gap: 10px; }
+h1, .has-results h1 { font-size: 13px; letter-spacing: -.2px; line-height: 1.4; }
+h1 span { display: block; }
+.eyebrow { display: none; }
+.playlist, .has-results .playlist { padding: 0; border: 0; background: transparent; }
+.playlist h2 { font-size: 11px; }
+#playlist-name, .has-results #playlist-name { font-size: 22px; line-height: 1.25; font-weight: 700; color: var(--ink); -webkit-line-clamp: 2; }
+.has-results main > * + * { margin-top: 10px; }
+#scan-summary { padding: 10px 0 4px; }
+.stage-label { margin: 0 0 6px; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
+#summary-title { font-size: 28px; line-height: 1.12; letter-spacing: -.8px; overflow-wrap: anywhere; }
+#summary-detail { margin: 10px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+#snapshot-note { margin: 5px 0 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
+#coverage-note { margin: 10px 0 0; padding: 10px; background: var(--soft); border-left: 3px solid var(--accent); font-size: 12px; line-height: 1.5; }
+.actions { flex-wrap: wrap; }
+.actions > button { flex: 1 1 120px; width: auto; margin: 0; }
+#checklist-toggle { min-height: 44px; }
+#scan-details, #settings { font-size: 12px; color: var(--muted); }
+#scan-details > summary, #settings > summary, #results-options > summary, .position-help > summary { cursor: pointer; padding: 8px 0; font-size: 12px; font-weight: 600; }
+#scan-details #status { margin-top: 6px; }
+#scan-details #status h2 { font-size: 13px; }
+#scan-comparison { padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+#comparison-summary { line-height: 1.6; }
+#back-results { min-height: 32px; font-size: 12px; }
+#results-note { margin: 6px 0 10px; }
+#results-controls { padding-block: 6px; }
+#results-options { width: 100%; }
+#results-options[open] { padding-bottom: 6px; }
+#results-options .toolbar-row + .toolbar-row { margin-top: 8px; }
+#results-options label { color: var(--muted); font-size: 12px; }
+#duplicate-list > li { display: block; padding: 0; background: var(--surface); }
+.song-details > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 14px 12px; list-style: none; }
+.song-details > summary::-webkit-details-marker { display: none; }
+.song-details > summary::after { content: "+"; color: var(--muted); font-size: 16px; }
+.song-details[open] > summary::after { content: "−"; }
+.song-details .title { flex: 1; min-width: 0; margin: 0; }
+.song-details .artist { display: block; margin: 3px 0 0; }
+.song-details .artist::before { content: none; }
+.remove-count { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.song-details .meta { display: block; border-top: 1px solid var(--line); padding: 10px 12px 0; }
+.song-details .positions { margin-top: 4px; }
+.song-details .copy-group, .song-details .more-positions { margin: 10px 0 12px 12px; }
+.song-details .lookalike { padding: 4px 12px; }
+#removal-checklist { margin-top: 14px; padding: 0; border: 0; background: transparent; }
+#checklist-title { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+#removal-checklist > p { font-size: 12px; line-height: 1.5; color: var(--muted); }
+#checklist-progress { color: var(--ink) !important; font-weight: 700; margin-bottom: 4px; }
+.verification-hint { margin-top: 0; }
+#checklist-items label:has(input:checked) span { text-decoration: line-through; color: var(--muted); }
+#verify-changes { margin-top: 14px; }
+#settings { margin-bottom: 12px; text-align: left; }
+#settings #clear-results { margin: 6px 0 12px; }
+#scan-notes { color: var(--muted); font-size: 12px; line-height: 1.5; white-space: pre-line; }
+@media (max-width: 300px) {
+  #summary-title { font-size: 25px; }
+  .song-details > summary { gap: 6px; padding-inline: 9px; }
+  .remove-count { white-space: normal; max-width: 65px; }
+  .theme-toggle { padding-inline: 5px; }
+}
+
+.actions #scan.secondary { min-height: 44px; }
+
+.actions:has(#scan[hidden]):has(#checklist-toggle[hidden]) { display: none; }
+#back-results.finish-action { width: 100%; min-height: 44px; padding: 11px 12px; border-radius: 10px; background: var(--action); color: #fff; font-size: 14px; }
+#back-results.finish-action:hover { background: var(--action-hover); text-decoration: none; }
+
+@media (forced-colors: active) {
+  #checklist-toggle:enabled, #verify-changes:enabled, #back-results.finish-action { border: 2px solid ButtonText; }
 }

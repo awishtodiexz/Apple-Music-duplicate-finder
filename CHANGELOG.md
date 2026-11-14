@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.6) (2026-11-14)
+
+- Simplify the popup into results, cleanup, and fresh-scan verification views, with one main extra-copy count, expandable song positions, and secondary tools in disclosures.
+- Start scans in a separate window by default, with a saved option to scan in the toolbar popup.
+- Add a removal checklist ordered from the highest playlist position to the lowest, with checkmarks and scan timestamps.
+- Compare successful rescans with the previous completed scan, showing extra-copy changes, new repeated songs, and songs no longer repeated.
+
 ## [1.5.1](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.5.1) (2026-11-14)
 
 - Keep catalog playlist results and pop-out connections scoped to their storefront.

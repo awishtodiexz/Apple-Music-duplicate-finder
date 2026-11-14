@@ -9,8 +9,7 @@
   </head>
   <body>
     <header>
-      <h1>Apple Music <br><span>Duplicate Finder</span></h1>
-      <div class="eyebrow">READ-ONLY PLAYLIST SCANNER</div>
+      <h1>Apple Music <span>Duplicate Finder</span></h1>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Theme: Auto. Switch to Light.">Theme: Auto</button>
     </header>
     <main>
@@ -18,22 +17,56 @@
         <h2 id="playlist-label">Current playlist</h2>
         <p id="playlist-name" dir="auto">Detecting playlist…</p>
       </section>
+      <section id="scan-summary" hidden aria-labelledby="summary-title">
+        <p id="summary-stage" class="stage-label">Scan results</p>
+        <h2 id="summary-title" tabindex="-1"></h2>
+        <p id="summary-detail"></p>
+        <p id="coverage-note" hidden></p>
+      </section>
       <div class="actions">
+        <button id="checklist-toggle" type="button" hidden aria-expanded="false" aria-controls="removal-checklist">Start cleanup</button>
         <button id="scan" type="button" disabled>Scan for duplicates</button>
-        <button id="clear-results" class="secondary" type="button" hidden>Clear results</button>
       </div>
       <button id="cancel" class="secondary" type="button" hidden>Cancel scan</button>
-      <section id="status">
-        <h2 id="status-title">Connecting to Apple Music…</h2>
-        <p id="status-detail">Keep this open while scanning.</p>
-        <p id="status-problem" hidden></p>
-        <p id="status-code" hidden></p>
-        <progress id="scan-progress" aria-label="Playlist scan progress" hidden></progress>
-      </section>
+      <details id="scan-details" open>
+        <summary>Scan details</summary>
+        <section id="status">
+          <h2 id="status-title">Connecting to Apple Music…</h2>
+          <p id="status-detail">Keep this open while scanning.</p>
+          <p id="status-problem" hidden></p>
+          <p id="status-code" hidden></p>
+          <p id="results-note" hidden>Matched by Apple Music ID, not title. The first position is the suggested keep.</p>
+          <p id="snapshot-note"></p>
+          <progress id="scan-progress" aria-label="Playlist scan progress" hidden></progress>
+        </section>
+      </details>
       <p id="status-announcer" class="visually-hidden" role="status"></p>
+      <section id="scan-comparison" hidden aria-labelledby="comparison-title">
+        <h2 id="comparison-title">Verification result</h2>
+        <p id="comparison-summary"></p>
+        <details id="resolved-details" hidden>
+          <summary id="resolved-summary">Songs no longer repeated</summary>
+          <p id="resolved-songs" dir="auto"></p>
+        </details>
+      </section>
+      <button id="back-results" class="link-button" type="button" hidden>Back to results</button>
+      <section id="removal-checklist" hidden aria-labelledby="checklist-title">
+        <h2 id="checklist-title">Remove extra copies</h2>
+        <p>Use the original playlist order. Remove the highest positions first in Apple Music, then mark each copy here.</p>
+        <details class="position-help">
+          <summary>How to use playlist positions</summary>
+          <p id="checklist-note"></p>
+        </details>
+        <p id="checklist-progress" role="status"></p>
+        <p class="verification-hint">Not yet verified. Checkmarks record your progress; a fresh scan confirms what remains.</p>
+        <ol id="checklist-items"></ol>
+        <button id="checklist-more" class="secondary" type="button" hidden>Show more extra copies</button>
+        <button id="verify-changes" type="button">Verify changes</button>
+      </section>
       <section id="results" hidden aria-labelledby="results-title">
-        <h2 id="results-title" tabindex="-1">Repeated songs</h2>
-        <p id="results-note">Matched by Apple Music ID, not title. Only the first position is kept.</p>
+        <div class="results-heading">
+          <h2 id="results-title" tabindex="-1">Repeated songs</h2>
+        </div>
         <div id="results-controls">
           <div id="results-toolbar">
             <div class="toolbar-row">
@@ -41,31 +74,33 @@
               <div class="search-field">
                 <input id="results-search" type="search" placeholder="Search song or artist" autocomplete="off" spellcheck="false">
               </div>
-              <label class="visually-hidden" for="results-min">Minimum copies</label>
-              <select id="results-min">
-                <option value="2">2+ copies</option>
-                <option value="3">3+ copies</option>
-                <option value="4">4+ copies</option>
-                <option value="5">5+ copies</option>
-              </select>
             </div>
-            <div class="toolbar-row">
-              <label class="visually-hidden" for="results-sort">Sort repeated songs</label>
-              <select id="results-sort">
-                <option value="playlist">Playlist order</option>
-                <option value="copies">Most copies</option>
-                <option value="song">Song A–Z</option>
-                <option value="artist">Artist A–Z</option>
-              </select>
-              <button id="copy-results" class="secondary" type="button" aria-label="Copy all repeated songs">Copy all</button>
-              <button id="download-results" class="secondary" type="button" aria-label="Download repeated songs as CSV">CSV</button>
-            </div>
+            <details id="results-options">
+              <summary>Filter, sort &amp; export</summary>
+              <div class="toolbar-row">
+                <label for="results-min">Copies</label>
+                <select id="results-min">
+                  <option value="2">2+ copies</option><option value="3">3+ copies</option>
+                  <option value="4">4+ copies</option><option value="5">5+ copies</option>
+                </select>
+              </div>
+              <div class="toolbar-row">
+                <label class="visually-hidden" for="results-sort">Sort repeated songs</label>
+                <select id="results-sort">
+                  <option value="playlist">Playlist order</option>
+                  <option value="copies">Most copies</option>
+                  <option value="song">Song A–Z</option>
+                  <option value="artist">Artist A–Z</option>
+                </select>
+                <button id="copy-results" class="secondary" type="button" aria-label="Copy all repeated songs">Copy all</button>
+                <button id="download-results" class="secondary" type="button" aria-label="Download repeated songs as CSV">CSV</button>
+              </div>
+            </details>
           </div>
           <p id="results-feedback" role="status"></p>
         </div>
         <p id="results-empty" hidden>No matching songs. <button id="reset-filters" class="link-button" type="button">Clear search and filters</button></p>
         <div id="results-scroll">
-          <p id="scan-notes" hidden></p>
           <ul id="duplicate-list"></ul>
         </div>
         <div class="more-actions">
@@ -73,9 +108,16 @@
           <button id="show-all" class="secondary" type="button" hidden>Show all</button>
         </div>
       </section>
+      <p id="scan-notes" hidden></p>
       <p id="results-announcer" class="visually-hidden" role="status"></p>
     </main>
-    <footer>Only looks. Never changes your music. <span id="version" class="version"></span>
+    <footer>
+      <details id="settings">
+        <summary>Settings</summary>
+        <button id="clear-results" class="secondary" type="button" hidden>Clear results</button>
+        <label id="scan-window-option" class="check-option" for="scan-window"><input id="scan-window" type="checkbox" checked> Keep scans open in a separate window</label>
+      </details>
+      Only looks. Never changes your music. <span id="version" class="version"></span>
       <span id="popout-separator" aria-hidden="true" hidden>·</span>
       <button id="pop-out" class="link-button" type="button" hidden>Open in a window</button>
     </footer>
