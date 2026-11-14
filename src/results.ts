@@ -209,7 +209,7 @@ export function summaryLine(summary: ResultSummary): string {
 export function formatResultsText(playlistName: string, groups: readonly DuplicateGroup[],
   summary: ResultSummary, notes: string): string {
   const lines = [
-    `Apple Music Duplicate Finder — ${playlistName}`,
+    `Apple Music Playlist Duplicate Finder — ${playlistName}`,
     summaryLine(summary),
   ];
   if (notes.trim()) lines.push('', notes.trim());

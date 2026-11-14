@@ -175,7 +175,7 @@ test('a scan with repeats reports the title and plural counts', () => {
 
 test('copy text includes all positions and scan notes', () => {
   const text = formatResultsText('My playlist', groups, summarize(10, groups, 0), 'No modification marker.');
-  assert.match(text, /Apple Music Duplicate Finder — My playlist/);
+  assert.match(text, /Apple Music Playlist Duplicate Finder — My playlist/);
   assert.match(text, /Zebra — Artist B — 2 copies — positions 1, 9/);
   assert.match(text, /No modification marker\./);
 });

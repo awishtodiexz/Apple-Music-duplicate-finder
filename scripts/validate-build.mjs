@@ -15,11 +15,11 @@ export async function validateBuild() {
   assert.equal(manifest.version, pkg.version.replace(/\.0$/, ''));
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
-  assert.equal(manifest.name, 'Apple Music Duplicate Finder');
+  assert.equal(manifest.name, 'Apple Music Playlist Duplicate Finder');
   assert.ok(manifest.name.length <= 75, 'manifest name exceeds the Chrome limit');
   assert.ok(manifest.description.length <= 132, 'manifest description exceeds the Chrome limit');
   assert.equal(manifest.minimum_chrome_version, '111');
-  assert.equal(manifest.action.default_title, 'Apple Music Duplicate Finder');
+  assert.equal(manifest.action.default_title, 'Apple Music Playlist Duplicate Finder');
   assert.deepEqual(manifest.permissions, ['activeTab', 'scripting']);
   for (const key of ['host_permissions', 'optional_host_permissions', 'optional_permissions', 'content_scripts',
     'background', 'externally_connectable', 'web_accessible_resources', 'side_panel', 'update_url', 'key',

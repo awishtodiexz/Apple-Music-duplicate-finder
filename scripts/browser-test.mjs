@@ -66,7 +66,7 @@ try {
   await context.route('https://music.apple.com/**', route => route.fulfill({ contentType: 'text/html', body: fixture }));
   const assets = new Map(await Promise.all(['popup.html', 'popup.css', 'popup.js'].map(async name =>
     [name, await readFile('dist/' + name, 'utf8')])));
-  await context.route('https://duplicate-finder.test/**', route => {
+  await context.route('https://playlist-duplicate-finder.test/**', route => {
     const name = new URL(route.request().url()).pathname.slice(1);
     const contentTypes = { 'popup.html': 'text/html', 'popup.css': 'text/css', 'popup.js': 'text/javascript' };
     return route.fulfill({ status: assets.has(name) ? 200 : 404, body: assets.get(name) || '',
@@ -89,7 +89,7 @@ try {
       localStorage.setItem('amdf:scan-window:v1', 'false');
     }
     window.chrome = {
-      runtime: { getManifest: () => ({ version }), getURL: path => 'https://duplicate-finder.test/' + path },
+      runtime: { getManifest: () => ({ version }), getURL: path => 'https://playlist-duplicate-finder.test/' + path },
       action: {
         setBadgeText: async ({ text, tabId }) => { window.__badge = text; window.__badgeTabId = tabId; },
         setBadgeBackgroundColor: async ({ tabId }) => { window.__badgeColorTabId = tabId; },
@@ -109,7 +109,7 @@ try {
   }, manifest.version);
   const pageErrors = [];
   popup.on('pageerror', error => pageErrors.push(error.message));
-  const popupUrl = 'https://duplicate-finder.test/popup.html';
+  const popupUrl = 'https://playlist-duplicate-finder.test/popup.html';
   // The toolbar popup is always 380px wide. Only the pop-out window can be narrower, and
   // popup.ts marks it with data-window. Narrow viewports here stand in for that window.
   const resizePopup = async (page, viewport) => {
@@ -485,7 +485,7 @@ try {
     await popup.getByRole('button', { name: 'Copy all 1 repeated song', exact: true }).click();
     await popup.waitForFunction(() => Boolean(window.__copiedResults));
     assert.match(await popup.evaluate(() => window.__copiedResults),
-      /^Apple Music Duplicate Finder — <img src=x onerror=alert\(1\)> My playlist/);
+      /^Apple Music Playlist Duplicate Finder — <img src=x onerror=alert\(1\)> My playlist/);
     const cachedDownloadPromise = popup.waitForEvent('download');
     await openOptions();
     await popup.getByRole('button', { name: 'Download CSV (1) of all repeated songs', exact: true }).click();
@@ -1612,7 +1612,7 @@ try {
   assert.equal(await popup.locator('#status-title').textContent(), 'Scan complete');
   console.log('PASS: default window handoff, one-shot autostart, playlist guard, visible window failure and remembered inline choice');
 
-  assert.deepEqual([...requestOrigins].sort(), ['https://duplicate-finder.test', 'https://music.apple.com'],
+  assert.deepEqual([...requestOrigins].sort(), ['https://music.apple.com', 'https://playlist-duplicate-finder.test'],
     'the popup and fixtures must not contact any other origin');
   assert.deepEqual(pageErrors, []);
   console.log(`PASS: ${scenarioCount} UI fixture scenarios across both API versions; no popup runtime exceptions`);

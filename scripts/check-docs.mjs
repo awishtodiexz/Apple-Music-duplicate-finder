@@ -13,7 +13,7 @@ assert.equal(lock.version, packageVersion, 'package-lock.json');
 assert.equal(lock.packages[''].version, packageVersion, 'package-lock.json (root package)');
 assert.equal(lock.packages[''].name, name, 'package-lock.json name');
 
-const zip = `apple-music-duplicate-finder-v${version}.zip`;
+const zip = `apple-music-playlist-duplicate-finder-v${version}.zip`;
 const mentions = {
   'README.md': `/releases/download/v${version}/${zip}`,
   'docs/DEVELOPMENT.md': zip,

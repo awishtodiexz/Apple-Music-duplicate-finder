@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Apple Music Duplicate Finder</title>
+    <title>Apple Music Playlist Duplicate Finder</title>
     <link rel="stylesheet" href="popup.css">
     <script type="module" src="popup.js"></script>
   </head>
   <body>
     <header>
-      <h1>Apple Music <span>Duplicate Finder</span></h1>
+      <h1>Apple Music <span>Playlist Duplicate Finder</span></h1>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Theme: Auto. Switch to Light.">Theme: Auto</button>
     </header>
     <main>
@@ -24,7 +24,6 @@
         <p id="coverage-note" hidden></p>
       </section>
       <div class="actions">
-        <button id="checklist-toggle" type="button" hidden aria-expanded="false" aria-controls="removal-checklist">Start cleanup</button>
         <button id="scan" type="button" disabled>Scan for duplicates</button>
       </div>
       <button id="cancel" class="secondary" type="button" hidden>Cancel scan</button>
@@ -35,33 +34,19 @@
           <p id="status-detail">Keep this open while scanning.</p>
           <p id="status-problem" hidden></p>
           <p id="status-code" hidden></p>
-          <p id="results-note" hidden>Matched by Apple Music ID, not title. The first position is the suggested keep.</p>
+          <p id="results-note" hidden>Matched by Apple Music ID, not title. Positions are where each copy sits in the playlist.</p>
           <p id="snapshot-note"></p>
           <progress id="scan-progress" aria-label="Playlist scan progress" hidden></progress>
         </section>
       </details>
       <p id="status-announcer" class="visually-hidden" role="status"></p>
       <section id="scan-comparison" hidden aria-labelledby="comparison-title">
-        <h2 id="comparison-title">Verification result</h2>
+        <h2 id="comparison-title">Since your last scan</h2>
         <p id="comparison-summary"></p>
         <details id="resolved-details" hidden>
           <summary id="resolved-summary">Songs no longer repeated</summary>
           <p id="resolved-songs" dir="auto"></p>
         </details>
-      </section>
-      <button id="back-results" class="link-button" type="button" hidden>Back to results</button>
-      <section id="removal-checklist" hidden aria-labelledby="checklist-title">
-        <h2 id="checklist-title">Remove extra copies</h2>
-        <p>Use the original playlist order. Remove the highest positions first in Apple Music, then mark each copy here.</p>
-        <details class="position-help">
-          <summary>How to use playlist positions</summary>
-          <p id="checklist-note"></p>
-        </details>
-        <p id="checklist-progress" role="status"></p>
-        <p class="verification-hint">Not yet verified. Checkmarks record your progress; a fresh scan confirms what remains.</p>
-        <ol id="checklist-items"></ol>
-        <button id="checklist-more" class="secondary" type="button" hidden>Show more extra copies</button>
-        <button id="verify-changes" type="button">Verify changes</button>
       </section>
       <section id="results" hidden aria-labelledby="results-title">
         <div class="results-heading">

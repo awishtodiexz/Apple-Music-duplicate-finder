@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.6.1](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.6.1) (2026-11-14)
+
+- Rename the extension to Apple Music Playlist Duplicate Finder. The manifest, popup, copied results, repository, npm package and release ZIP names now match.
+
 ## [1.6](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.6) (2026-11-14)
 
 - Simplify the popup into results, cleanup, and fresh-scan verification views, with one main extra-copy count, expandable song positions, and secondary tools in disclosures.

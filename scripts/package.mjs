@@ -14,8 +14,8 @@ for (const name of extensionFiles) {
 files['LICENSE'] = [new Uint8Array(await readFile('LICENSE')), { mtime: new Date(2000, 0, 1) }];
 files['INSTALL.txt'] = [new Uint8Array(await readFile('assets/INSTALL.txt')), { mtime: new Date(2000, 0, 1) }];
 await mkdir('artifacts', { recursive: true });
-const destination = `artifacts/apple-music-duplicate-finder-v${version}.zip`;
+const destination = `artifacts/apple-music-playlist-duplicate-finder-v${version}.zip`;
 const archive = zipSync(files);
 await writeFile(destination, archive);
-await writeFile(destination + '.sha256', `${createHash('sha256').update(archive).digest('hex')}  apple-music-duplicate-finder-v${version}.zip\n`);
+await writeFile(destination + '.sha256', `${createHash('sha256').update(archive).digest('hex')}  apple-music-playlist-duplicate-finder-v${version}.zip\n`);
 console.log('Created ' + destination);

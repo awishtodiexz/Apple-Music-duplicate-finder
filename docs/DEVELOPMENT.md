@@ -46,7 +46,7 @@ docs/      this file, the architecture notes and README screenshots
 1. Set the npm version in `package.json` (for example, `1.6.0`), then run `npm install` to update the lockfile. Use `1.6` in `public/manifest.json` and release names when the patch is zero; keep nonzero patches, such as `1.6.1`.
 2. Update the version in `README.md`, `assets/INSTALL.txt`, `.github/SECURITY.md` and the bug report template, and add a `CHANGELOG.md` entry. `npm run check:docs` will tell you if you missed one.
 3. Run `npm run check` and `npm run audit`, then merge through a pull request.
-4. Tag the merged commit (`vX.Y`), run `npm run package`, and attach `artifacts/apple-music-duplicate-finder-vX.Y.zip` and its `.sha256` file to a GitHub release.
+4. Tag the merged commit (`vX.Y`), run `npm run package`, and attach `artifacts/apple-music-playlist-duplicate-finder-vX.Y.zip` and its `.sha256` file to a GitHub release.
 
 Never replace assets on a published release; ship a new version instead.
 
@@ -56,13 +56,13 @@ Put the ZIP and its `.sha256` file in the same folder, then run:
 
 ```sh
 # Linux
-sha256sum --check apple-music-duplicate-finder-v1.6.zip.sha256
+sha256sum --check apple-music-playlist-duplicate-finder-v1.6.1.zip.sha256
 
 # macOS
-shasum -a 256 --check apple-music-duplicate-finder-v1.6.zip.sha256
+shasum -a 256 --check apple-music-playlist-duplicate-finder-v1.6.1.zip.sha256
 ```
 
 ```powershell
 # Windows
-(Get-FileHash apple-music-duplicate-finder-v1.6.zip -Algorithm SHA256).Hash -ieq (Get-Content apple-music-duplicate-finder-v1.6.zip.sha256).Split(' ')[0]
+(Get-FileHash apple-music-playlist-duplicate-finder-v1.6.1.zip -Algorithm SHA256).Hash -ieq (Get-Content apple-music-playlist-duplicate-finder-v1.6.1.zip.sha256).Split(' ')[0]
 ```
