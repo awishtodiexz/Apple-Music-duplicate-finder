@@ -55,23 +55,12 @@ export function visibleGroups(groups: readonly DuplicateGroup[], query: string, 
 }
 
 /**
- * The one rule for which copy stays: the first position is kept, every later
- * position is an extra copy. Rows, copy feedback and exports all read it here.
+ * The first position a song appears at, and every later position. Rows, copy feedback
+ * and exports all read it here. Nothing is suggested for removal: this only describes.
  */
-export function splitPositions(group: Pick<DuplicateGroup, 'positions'>): { keep: number; extra: number[] } {
-  const [keep = 0, ...extra] = group.positions;
-  return { keep, extra };
-}
-
-export interface RemovalEntry {
-  group: DuplicateGroup;
-  position: number;
-}
-
-/** Global descending order keeps earlier snapshot positions valid during removal. */
-export function removalChecklist(groups: readonly DuplicateGroup[]): RemovalEntry[] {
-  return groups.flatMap(group => splitPositions(group).extra.map(position => ({ group, position })))
-    .sort((a, b) => b.position - a.position);
+export function splitPositions(group: Pick<DuplicateGroup, 'positions'>): { first: number; later: number[] } {
+  const [first = 0, ...later] = group.positions;
+  return { first, later };
 }
 
 export function compareScans(previous: readonly DuplicateGroup[], current: readonly DuplicateGroup[]) {
@@ -90,7 +79,7 @@ export function comparisonText(comparison: ReturnType<typeof compareScans>): str
   const { extraDelta, remaining, resolved, added } = comparison;
   const change = extraDelta === 0 ? 'Extra-copy count unchanged' :
     `${Math.abs(extraDelta).toLocaleString()} ${extraDelta < 0 ? 'fewer' : 'more'} ${Math.abs(extraDelta) === 1 ? 'extra copy' : 'extra copies'}`;
-  return `${change} · ${plural(remaining, 'extra copy', 'extra copies')} remaining.\n` +
+  return `${change} · ${plural(remaining, 'extra copy', 'extra copies')} now.\n` +
     `${plural(resolved.length, 'song')} no longer repeated · ${plural(added.length, 'new repeated song')}.`;
 }
 
@@ -99,18 +88,18 @@ const numberFormat = new Intl.NumberFormat();
 const nbsp = '\u00A0';
 
 /**
- * A row's positions as "#1 keep · #101 · #245". Each separator is glued to the position
+ * A row's positions as "#1 first · #101 · #245". Each separator is glued to the position
  * before it with a no-break space, so a wrapped line can end with "·" but never start
  * with one. `limit` caps how many positions are written; the rest become a "+N more" token.
  */
-export function positionParts(group: Pick<DuplicateGroup, 'positions'>, limit = Infinity): { keep: string; extras: string } {
-  const { keep, extra } = splitPositions(group);
-  const shown = extra.slice(0, Math.max(0, limit - 1));
-  const hidden = extra.length - shown.length;
-  const tokens = [`#${numberFormat.format(keep)}${nbsp}keep`, ...shown.map(position => `#${numberFormat.format(position)}`)];
+export function positionParts(group: Pick<DuplicateGroup, 'positions'>, limit = Infinity): { first: string; later: string } {
+  const { first, later } = splitPositions(group);
+  const shown = later.slice(0, Math.max(0, limit - 1));
+  const hidden = later.length - shown.length;
+  const tokens = [`#${numberFormat.format(first)}${nbsp}first`, ...shown.map(position => `#${numberFormat.format(position)}`)];
   if (hidden > 0) tokens.push(`+${numberFormat.format(hidden)}${nbsp}more`);
   const joined = tokens.map((token, index) => index < tokens.length - 1 ? `${token}${nbsp}·` : token);
-  return { keep: joined[0]!, extras: joined.length > 1 ? ` ${joined.slice(1).join(' ')}` : '' };
+  return { first: joined[0]!, later: joined.length > 1 ? ` ${joined.slice(1).join(' ')}` : '' };
 }
 
 const groupKey = (group: DuplicateGroup): string => `${group.name.trim().toLowerCase()}\u0000${group.artist.trim().toLowerCase()}`;
