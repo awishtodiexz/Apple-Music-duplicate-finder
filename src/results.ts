@@ -63,6 +63,37 @@ export function splitPositions(group: Pick<DuplicateGroup, 'positions'>): { keep
   return { keep, extra };
 }
 
+export interface RemovalEntry {
+  group: DuplicateGroup;
+  position: number;
+}
+
+/** Global descending order keeps earlier snapshot positions valid during removal. */
+export function removalChecklist(groups: readonly DuplicateGroup[]): RemovalEntry[] {
+  return groups.flatMap(group => splitPositions(group).extra.map(position => ({ group, position })))
+    .sort((a, b) => b.position - a.position);
+}
+
+export function compareScans(previous: readonly DuplicateGroup[], current: readonly DuplicateGroup[]) {
+  const before = new Set(previous.map(group => group.identity));
+  const after = new Set(current.map(group => group.identity));
+  const extras = (rows: readonly DuplicateGroup[]) => rows.reduce((sum, group) => sum + group.extraCopies, 0);
+  return {
+    extraDelta: extras(current) - extras(previous),
+    remaining: extras(current),
+    resolved: previous.filter(group => !after.has(group.identity)),
+    added: current.filter(group => !before.has(group.identity)),
+  };
+}
+
+export function comparisonText(comparison: ReturnType<typeof compareScans>): string {
+  const { extraDelta, remaining, resolved, added } = comparison;
+  const change = extraDelta === 0 ? 'Extra-copy count unchanged' :
+    `${Math.abs(extraDelta).toLocaleString()} ${extraDelta < 0 ? 'fewer' : 'more'} ${Math.abs(extraDelta) === 1 ? 'extra copy' : 'extra copies'}`;
+  return `${change} · ${plural(remaining, 'extra copy', 'extra copies')} remaining.\n` +
+    `${plural(resolved.length, 'song')} no longer repeated · ${plural(added.length, 'new repeated song')}.`;
+}
+
 // One formatter: toLocaleString builds a new one per call, which dominates drawing 1,200 rows.
 const numberFormat = new Intl.NumberFormat();
 const nbsp = '\u00A0';

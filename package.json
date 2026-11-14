@@ -1,6 +1,6 @@
 {
   "name": "apple-music-duplicate-finder",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "private": true,
   "type": "module",
   "description": "Read-only, local duplicate detection for the current Apple Music playlist.",

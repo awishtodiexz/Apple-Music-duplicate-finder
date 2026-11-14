@@ -38,7 +38,7 @@ window.MusicKit = { getInstance() {
       return { json: { data: Array.from({ length: Math.max(0, Math.min(100, length - offset)) }, (_, i) => {
         const index = offset + i;
         const allSame = scenario === 'oneGroup';
-        const repeated = allSame || scenario !== 'distinct' && [0, 100, 244].includes(index);
+        const repeated = allSame || scenario !== 'distinct' && (scenario === 'partial' ? [0, 100] : [0, 100, 244]).includes(index);
         const noId = scenario === 'unknown' || (scenario === 'coverage' && index === 2) || (scenario === 'mixed' && index === 0);
         const catalogId = noId ? undefined :
           allSame ? '123' : scenario === 'many' ? String(1000 + index % 1200) :

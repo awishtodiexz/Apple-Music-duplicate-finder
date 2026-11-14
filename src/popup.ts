@@ -3,8 +3,8 @@ import { findDuplicates } from './duplicates';
 import { connectFailure, errorCode, errorMessage, errorRecovery, recoveryLabel, ScanError, type Recovery } from './errors';
 import { readPlaylist, scanLimits, type PlaylistSource, type ScanProgress } from './playlist-reader';
 import { detectPlaylist } from './playlist-url';
-import { appleMusicId, csvFilename, exportLabels, formatGroupText, formatResultsText, lookalikeIdentities, outcomeTitle, positionParts, scanOutcome, splitPositions, summarize, summaryLine, toCsv, visibleGroups, type ResultSummary, type SortMode } from './results';
-import { cacheFreshness, clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan, type CacheFreshness } from './storage';
+import { appleMusicId, compareScans, comparisonText, csvFilename, exportLabels, formatGroupText, formatResultsText, lookalikeIdentities, outcomeTitle, positionParts, removalChecklist, scanOutcome, splitPositions, summarize, summaryLine, toCsv, visibleGroups, type RemovalEntry, type ResultSummary, type SortMode } from './results';
+import { cacheFreshness, clearCachedScan, loadCachedScan, loadScanWindowPreference, loadThemePreference, saveCachedScan, saveScanWindowPreference, saveThemePreference, type CachedScan, type CacheFreshness } from './storage';
 import { nextTheme, themeLabel, type ThemePreference } from './theme';
 import type { DuplicateGroup, PlaylistInfo, PlaylistRef } from './types';
 
@@ -28,6 +28,7 @@ const progress = element<HTMLProgressElement>('scan-progress');
 const showMore = element<HTMLButtonElement>('show-more');
 const showAll = element<HTMLButtonElement>('show-all');
 const resultsTitle = element('results-title');
+const resultsNote = element('results-note');
 const resultsSearch = element<HTMLInputElement>('results-search');
 const resultsSort = element<HTMLSelectElement>('results-sort');
 const resultsMin = element<HTMLSelectElement>('results-min');
@@ -43,6 +44,34 @@ const resultsFeedback = element('results-feedback');
 const resultsEmpty = element('results-empty');
 const version = element('version');
 const themeToggle = element<HTMLButtonElement>('theme-toggle');
+const scanWindow = element<HTMLInputElement>('scan-window');
+const scanWindowOption = element('scan-window-option');
+const comparisonSection = element('scan-comparison');
+const comparisonSummary = element('comparison-summary');
+const resolvedDetails = element<HTMLDetailsElement>('resolved-details');
+const resolvedSummary = element('resolved-summary');
+const resolvedSongs = element('resolved-songs');
+const checklistToggle = element<HTMLButtonElement>('checklist-toggle');
+const checklist = element('removal-checklist');
+const checklistItems = element('checklist-items');
+const checklistNote = element('checklist-note');
+const checklistProgress = element('checklist-progress');
+const checklistMore = element<HTMLButtonElement>('checklist-more');
+const scanSummary = element('scan-summary');
+const summaryTitle = element('summary-title');
+const summaryDetail = element('summary-detail');
+const summaryStage = element('summary-stage');
+const snapshotNote = element('snapshot-note');
+const coverageNote = element('coverage-note');
+const scanDetails = element<HTMLDetailsElement>('scan-details');
+const backResults = element<HTMLButtonElement>('back-results');
+const verifyChanges = element<HTMLButtonElement>('verify-changes');
+type WorkflowView = 'overview' | 'cleanup' | 'verification';
+let workflowView: WorkflowView = 'overview';
+let checklistEntries: RemovalEntry[] = [];
+let checklistDisplayed = 0;
+const checkedPositions = new Set<number>();
+let newIdentities = new Set<string>();
 const numberFormat = new Intl.NumberFormat();
 const number = (value: number): string => numberFormat.format(value);
 const batchSize = 50;
@@ -62,6 +91,8 @@ interface CompletedScan {
   unidentified: number;
   notes: string;
   cached: boolean;
+  comparison: null | { kind: 'unavailable'; previousAt: number } |
+    { kind: 'compared'; previousAt: number; data: ReturnType<typeof compareScans> };
 }
 let lastCompleted: CompletedScan | null = null;
 let source: PlaylistSource | null = null;
@@ -139,7 +170,8 @@ function scanControl(hasSource: boolean, recovery: Recovery | null, hasResult: b
 function updateScanLabel(): void {
   const control = scanControl(source !== null, failure, lastCompleted !== null);
   scan.textContent = control.label;
-  scan.hidden = control.hidden;
+  scan.hidden = control.hidden || workflowView === 'cleanup';
+  scan.classList.toggle('secondary', lastCompleted !== null);
 }
 
 /** The popped-out window carries the tab it was opened from; the toolbar popup does not. */
@@ -152,6 +184,17 @@ function pinnedTabId(): number | null {
 
 // Only the pop-out has a real, resizable viewport; its CSS reflows down to 240px.
 if (pinnedTabId() !== null) document.documentElement.dataset.window = 'pop-out';
+scanWindowOption.hidden = pinnedTabId() !== null;
+scanWindow.checked = loadScanWindowPreference();
+scanWindow.addEventListener('change', () => saveScanWindowPreference(scanWindow.checked));
+
+async function openWindow(autoScan: boolean): Promise<void> {
+  if (connectedTabId === null) return;
+  const url = new URL(chrome.runtime.getURL('popup.html'));
+  url.searchParams.set('tab', String(connectedTabId));
+  if (autoScan && currentPlaylist) url.searchParams.set('scan', currentPlaylist.id);
+  await chrome.windows.create({ url: url.href, type: 'popup', width: 400, height: 760 });
+}
 
 function updatePopOut(): void {
   // Hidden while a scan runs: opening the window closes this popup, which would
@@ -162,13 +205,12 @@ function updatePopOut(): void {
   popoutSeparator.hidden = popOut.hidden;
 }
 
-popOut.addEventListener('click', () => {
+popOut.addEventListener('click', async () => {
   if (connectedTabId === null || busy) return;
   try {
-    const url = `${chrome.runtime.getURL('popup.html')}?tab=${connectedTabId}`;
-    void Promise.resolve(chrome.windows.create({ url, type: 'popup', width: 400, height: 760 })).catch(() => {});
+    await openWindow(false);
   } catch {
-    // The toolbar popup still works if a window cannot be created.
+    setStatus('Could not open a window', 'Try Open in a window again.');
   }
 });
 
@@ -185,6 +227,7 @@ interface StatusOptions {
 function setStatus(title: string, detail: string, { error = false, code, problem, phase }: StatusOptions = {}): void {
   // Assigning identical text still replaces the node and re-triggers a live
   // region announcement, so only write what actually changed.
+  scanDetails.open = true;
   if (statusTitle.textContent !== title) statusTitle.textContent = title;
   if (statusDetail.textContent !== detail) statusDetail.textContent = detail;
   status.dataset.error = String(error);
@@ -224,6 +267,16 @@ function clearGroups(): void {
   totalTracks = 0;
   unidentified = 0;
   scanNotes = '';
+  comparisonSection.hidden = true;
+  scanSummary.hidden = true;
+  snapshotNote.textContent = '';
+  resultsNote.hidden = true;
+  workflowView = 'overview';
+  backResults.hidden = true;
+  checklistToggle.hidden = true;
+  scanDetails.open = true;
+  newIdentities = new Set();
+  resetChecklist();
   list.replaceChildren();
   results.hidden = true;
   setResultsView(false);
@@ -244,7 +297,7 @@ function currentGroups(): DuplicateGroup[] {
   return visibleGroups(groups, resultsSearch.value, mode || 'playlist', Number(resultsMin.value) || 2);
 }
 
-/** Writes "#1 keep · #101 · #245"; the hidden label keeps the meaning for screen readers. */
+/** Writes "#1 suggested keep · #101 · #245"; the hidden label keeps the meaning for screen readers. */
 function renderPositions(target: HTMLElement, group: DuplicateGroup, limit: number): void {
   const label = document.createElement('span');
   label.className = 'visually-hidden';
@@ -252,7 +305,7 @@ function renderPositions(target: HTMLElement, group: DuplicateGroup, limit: numb
   const parts = positionParts(group, limit);
   const keep = document.createElement('span');
   keep.className = 'keep';
-  keep.textContent = parts.keep;
+  keep.textContent = parts.keep.replace('keep', 'suggested keep');
   const extras = document.createElement('span');
   extras.className = 'extras';
   extras.textContent = parts.extras;
@@ -290,6 +343,12 @@ function buildGroup(group: DuplicateGroup): HTMLLIElement {
   // API-provided text is always text, never HTML.
   song.textContent = group.name;
   title.append(song);
+  if (newIdentities.has(group.identity)) {
+    const label = document.createElement('span');
+    label.className = 'new-repeat';
+    label.textContent = 'New';
+    title.append(label);
+  }
   if (group.artist.trim()) {
     const artist = document.createElement('span');
     artist.className = 'artist';
@@ -297,7 +356,16 @@ function buildGroup(group: DuplicateGroup): HTMLLIElement {
     artist.textContent = group.artist;
     title.append(artist);
   }
-  item.append(title);
+  const detail = document.createElement('details');
+  detail.className = 'song-details';
+  const summary = document.createElement('summary');
+  summary.append(title);
+  const removeCount = document.createElement('span');
+  removeCount.className = 'remove-count';
+  removeCount.textContent = `${number(extra.length)} to remove`;
+  summary.append(removeCount);
+  detail.append(summary);
+  item.append(detail);
   const meta = document.createElement('div');
   meta.className = 'meta';
   const counts = document.createElement('span');
@@ -307,12 +375,12 @@ function buildGroup(group: DuplicateGroup): HTMLLIElement {
   positions.className = 'positions';
   renderPositions(positions, group, maxInlinePositions);
   meta.append(counts, positions);
-  item.append(meta);
+  detail.append(meta);
   if (lookalikes.has(group.identity)) {
     const note = document.createElement('p');
     note.className = 'lookalike';
     note.textContent = `Different Apple Music song, same title · Apple Music ID ${appleMusicId(group)}`;
-    item.append(note);
+    detail.append(note);
   }
   const name = group.artist.trim() ? `${group.name} by ${group.artist}` : group.name;
   if (group.positions.length > maxInlinePositions) {
@@ -341,7 +409,7 @@ function buildGroup(group: DuplicateGroup): HTMLLIElement {
         positions.removeAttribute('data-expanded');
       }
     });
-    item.append(toggle);
+    detail.append(toggle);
   }
   const copyGroup = document.createElement('button');
   copyGroup.type = 'button';
@@ -351,7 +419,7 @@ function buildGroup(group: DuplicateGroup): HTMLLIElement {
   copyGroup.addEventListener('click', async () => {
     confirmRowCopy(copyGroup, await copyText(formatGroupText(group)), name);
   });
-  item.append(copyGroup);
+  detail.append(copyGroup);
   return item;
 }
 
@@ -397,8 +465,8 @@ function appendBatch(count: number = batchSize): void {
   const step = Math.min(remaining, showAllLimit);
   showAll.textContent = step === remaining ? `Show all ${number(visible.length)}` : `Show next ${number(step)}`;
   showAll.setAttribute('aria-label', `${showAll.textContent} repeated songs`);
-  results.hidden = groups.length === 0;
-  setResultsView(!results.hidden);
+  results.hidden = groups.length === 0 || workflowView !== 'overview';
+  setResultsView(lastCompleted !== null);
   resultsEmpty.hidden = visible.length !== 0;
   copyResults.disabled = visible.length === 0;
   downloadResults.disabled = visible.length === 0;
@@ -432,6 +500,7 @@ function announceResults(): void {
 
 /** Paint one completed scan. Only a completed scan ever reaches this function. */
 function applyCompleted(completed: CompletedScan): void {
+  const changed = lastCompleted !== completed;
   lastCompleted = completed;
   currentPlaylistName = completed.playlistName;
   groups = completed.groups;
@@ -441,11 +510,137 @@ function applyCompleted(completed: CompletedScan): void {
   notes.textContent = scanNotes;
   notes.hidden = !scanNotes;
   lookalikes = lookalikeIdentities(groups);
+  const comparison = completed.comparison;
+  comparisonSection.hidden = comparison === null;
+  resolvedDetails.hidden = true;
+  newIdentities = new Set();
+  if (comparison) {
+    const date = `Compared with scan from ${formatDate(comparison.previousAt)}.`;
+    if (comparison.kind === 'unavailable') {
+      comparisonSummary.textContent = `${date}\nSome songs could not be identified in one of these scans, so changes cannot be confirmed.`;
+    } else {
+      comparisonSummary.textContent = `${comparisonText(comparison.data)}\n${date}`;
+      newIdentities = new Set(comparison.data.added.map(group => group.identity));
+      resolvedDetails.hidden = comparison.data.resolved.length === 0;
+      const count = comparison.data.resolved.length;
+      resolvedSummary.textContent = `${number(count)} ${count === 1 ? 'song' : 'songs'} no longer repeated`;
+      resolvedSongs.textContent = '';
+      resolvedDetails.open = false;
+    }
+  }
+  if (changed) {
+    resetChecklist();
+    workflowView = comparison === null ? 'overview' : 'verification';
+  }
   setBadge(groups.length);
   renderResults();
-  // An empty playlist leaves nothing to clear.
-  clearResults.hidden = completed.totalTracks === 0;
+  renderWorkflow();
+  if (changed) scanDetails.open = false;
+  // An empty playlist can still have a comparison to clear.
+  clearResults.hidden = completed.totalTracks === 0 && completed.comparison === null;
 }
+
+resolvedDetails.addEventListener('toggle', () => {
+  const comparison = lastCompleted?.comparison;
+  if (resolvedDetails.open && comparison?.kind === 'compared') {
+    resolvedSongs.textContent = comparison.data.resolved.map(group => `${group.name} — ${group.artist}`).join('\n');
+  }
+});
+
+function resetChecklist(): void {
+  checklist.hidden = true;
+  checklistToggle.setAttribute('aria-expanded', 'false');
+  checklistItems.replaceChildren();
+  checklistEntries = [];
+  checklistDisplayed = 0;
+  checkedPositions.clear();
+}
+
+function updateChecklistProgress(): void {
+  checklistProgress.textContent = `${number(checkedPositions.size)} of ${number(checklistEntries.length)} marked removed`;
+}
+
+function appendChecklistBatch(): void {
+  const end = Math.min(checklistDisplayed + batchSize, checklistEntries.length);
+  const fragment = document.createDocumentFragment();
+  for (const entry of checklistEntries.slice(checklistDisplayed, end)) {
+    const item = document.createElement('li');
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) checkedPositions.add(entry.position);
+      else checkedPositions.delete(entry.position);
+      updateChecklistProgress();
+    });
+    const text = document.createElement('span');
+    text.dir = 'auto';
+    text.textContent = `#${number(entry.position)} · ${entry.group.name} — ${entry.group.artist}`;
+    checkbox.setAttribute('aria-label', `Marked removed: ${text.textContent}`);
+    label.append(checkbox, text);
+    item.append(label);
+    fragment.append(item);
+  }
+  checklistItems.append(fragment);
+  checklistDisplayed = end;
+  checklistMore.hidden = end === checklistEntries.length;
+}
+
+function renderWorkflow(): void {
+  const completed = lastCompleted;
+  if (!completed) return;
+  const extraCount = summarize(totalTracks, groups, unidentified).extraCopies;
+  const extraLabel = `${number(extraCount)} extra ${extraCount === 1 ? 'copy' : 'copies'}`;
+  scanSummary.hidden = false;
+  resultsNote.hidden = false;
+  summaryStage.hidden = workflowView === 'overview';
+  summaryStage.textContent = workflowView === 'cleanup' ? 'Cleanup in progress' :
+    workflowView === 'verification' ? 'Fresh scan complete' : 'Scan results';
+  summaryTitle.textContent = workflowView === 'verification' && completed.comparison?.kind === 'unavailable' ? 'Cleanup not fully verified' :
+    workflowView === 'cleanup' ? 'Remove extra copies' :
+    workflowView === 'verification' ? `${extraLabel} remaining` :
+    extraCount > 0 ? `${extraLabel} found` :
+    completed.unidentified > 0 ? 'Scan needs a closer look' : 'No extra copies found';
+  summaryDetail.textContent = workflowView === 'cleanup' ? `${extraLabel} to review` : `${number(groups.length)} ${groups.length === 1 ? 'song repeats' : 'songs repeat'} · ${number(totalTracks)} songs scanned`;
+  snapshotNote.textContent = `Scan from ${formatDate(completed.scannedAt)}`;
+  coverageNote.hidden = completed.unidentified === 0;
+  coverageNote.textContent = `${number(completed.unidentified)} ${completed.unidentified === 1 ? 'song was' : 'songs were'} skipped. Cleanup cannot be fully verified.`;
+  results.hidden = workflowView !== 'overview' || groups.length === 0;
+  checklist.hidden = workflowView !== 'cleanup';
+  comparisonSection.hidden = workflowView !== 'verification' || completed.comparison === null;
+  backResults.hidden = workflowView === 'overview';
+  const finished = workflowView === 'verification' && extraCount === 0 && completed.unidentified === 0 && completed.comparison?.kind === 'compared';
+  backResults.textContent = finished ? 'Done' : 'Back to results';
+  backResults.classList.toggle('finish-action', finished);
+  checklistToggle.hidden = workflowView === 'cleanup' || groups.length === 0;
+  checklistToggle.textContent = workflowView === 'verification' ? 'Continue cleanup' : 'Start cleanup';
+  checklistToggle.setAttribute('aria-expanded', String(workflowView === 'cleanup'));
+  updateScanLabel();
+}
+
+checklistToggle.addEventListener('click', () => {
+  if (!lastCompleted) return;
+  if (checklistEntries.length === 0) {
+    checklistEntries = removalChecklist(groups);
+    checklistNote.textContent = `All extra copies from ${formatDate(lastCompleted.scannedAt)}, including songs hidden by filters. Use the original playlist order and remove from highest position to lowest. Rescan if you reorder the playlist or make other edits.`;
+    updateChecklistProgress();
+    appendChecklistBatch();
+  }
+  workflowView = 'cleanup';
+  renderWorkflow();
+  summaryTitle.focus();
+});
+backResults.addEventListener('click', () => {
+  workflowView = 'overview';
+  renderWorkflow();
+  summaryTitle.focus();
+});
+verifyChanges.addEventListener('click', () => { void startScan(); });
+checklistMore.addEventListener('click', () => {
+  const firstNew = checklistDisplayed;
+  appendChecklistBatch();
+  checklistItems.children[firstNew]?.querySelector('input')?.focus();
+});
 
 /** Caveats the summary line does not already state. */
 function scanNotesText(summary: ResultSummary, countVerified: boolean, modificationChecked: boolean): string {
@@ -472,6 +667,7 @@ function restoreCached(cached: CachedScan): CompletedScan {
     // Rebuilt rather than read back, so a scan saved by an older version gets today's wording.
     notes: scanNotesText(summarize(cached.totalTracks, cached.groups, cached.unidentified), cached.countVerified, cached.modificationChecked),
     cached: true,
+    comparison: null,
   };
   applyCompleted(completed);
   return completed;
@@ -529,7 +725,7 @@ function cacheCurrent(playlist: PlaylistRef, info: PlaylistInfo, countVerified: 
   };
   const saved = saveCachedScan(cached);
   if (!saved) resultsFeedback.textContent = tooLargeToKeep;
-  clearResults.hidden = totalTracks === 0 || (groups.length === 0 && !saved);
+  clearResults.hidden = (totalTracks === 0 || (groups.length === 0 && !saved)) && !lastCompleted?.comparison;
   return saved;
 }
 
@@ -613,7 +809,7 @@ function syncControlsHeight(): void {
 }
 new ResizeObserver(syncControlsHeight).observe(resultsControls);
 
-/** With results on screen the header shrinks (see .has-results) so more rows fit. */
+/** Completed scans give the playlist name the header's emphasis. */
 function setResultsView(shown: boolean): void {
   if (document.body.classList.contains('has-results') === shown) return;
   document.body.classList.toggle('has-results', shown);
@@ -849,9 +1045,24 @@ function progressStatus(event: ScanProgress, keepNote: string): { title: string;
   }
 }
 
-scan.addEventListener('click', async () => {
+async function startScan(): Promise<void> {
   if (busy) return;
   if (!source || !currentPlaylist) { await initialize(); return; }
+  if (pinnedTabId() === null && scanWindow.checked) {
+    busy = true;
+    scan.disabled = true;
+    updatePopOut();
+    try {
+      await openWindow(true);
+    } catch {
+      setStatus('Could not open a scan window', 'Try again, or turn off “Keep scans open in a separate window” to scan here.');
+    } finally {
+      busy = false;
+      scan.disabled = false;
+      updatePopOut();
+    }
+    return;
+  }
   busy = true;
   failure = null;
   const age = Date.now() - pendingInfoAt;
@@ -861,9 +1072,12 @@ scan.addEventListener('click', async () => {
   const controller = new AbortController();
   scanController = controller;
   // Disabling the focused Scan button would drop keyboard focus onto the body.
-  const focusCancel = document.activeElement === scan;
+  const focusCancel = document.activeElement === scan || document.activeElement === verifyChanges;
   cancel.hidden = false;
   scan.disabled = true;
+  verifyChanges.disabled = true;
+  checklistToggle.disabled = true;
+  backResults.disabled = true;
   scan.textContent = 'Scanning…';
   if (focusCancel) cancel.focus();
   // The badge and the results on screen describe the last completed scan; keep
@@ -903,6 +1117,10 @@ scan.addEventListener('click', async () => {
     // Without results on screen, the caveats have nowhere else to go.
     const notesInStatus = duplicates.groups.length === 0 && scanNotes ? `\n${scanNotes}` : '';
     const scannedAt = Date.now();
+    const previous = lastCompleted;
+    const comparison: CompletedScan['comparison'] = previous === null ? null :
+      previous.unidentified > 0 || unidentified > 0 ? { kind: 'unavailable', previousAt: previous.scannedAt } :
+        { kind: 'compared', previousAt: previous.scannedAt, data: compareScans(previous.groups, duplicates.groups) };
     // With a list below, the summary stays one line; the date is on the next visit's "last scan".
     const scannedLine = duplicates.groups.length === 0 ? `\nScanned ${formatDate(scannedAt)}.` : '';
     setStatus(outcomeTitle[scanOutcome(resultSummary)], `${summaryLine(resultSummary)}${notesInStatus}${scannedLine}`);
@@ -915,6 +1133,7 @@ scan.addEventListener('click', async () => {
       unidentified,
       notes: scanNotes,
       cached: false,
+      comparison,
     });
     const saved = cacheCurrent(currentPlaylist, result.info, result.countVerified, result.modificationChecked, scannedAt);
     if (lastCompleted) lastCompleted.cached = saved;
@@ -947,14 +1166,34 @@ scan.addEventListener('click', async () => {
     scanController = null;
     cancel.hidden = true;
     scan.disabled = false;
+    verifyChanges.disabled = false;
+    checklistToggle.disabled = false;
+    backResults.disabled = false;
     results.removeAttribute('aria-busy');
     clearResults.disabled = false;
     updateScanLabel();
     updatePopOut();
     progress.hidden = true;
-    if (restoreFocus) focusScan();
+    if (restoreFocus) {
+      if (workflowView === 'cleanup' && failure !== null) focusScan();
+      else if (workflowView === 'cleanup') verifyChanges.focus();
+      else if (workflowView === 'verification') summaryTitle.focus();
+      else focusScan();
+    }
     replayRecheck();
   }
-});
+}
+scan.addEventListener('click', () => { void startScan(); });
 
-void initialize();
+// Consume the handoff once. Reloading a scan window must not start another scan.
+const startupUrl = new URL(location.href);
+const requestedScan = startupUrl.searchParams.get('scan');
+if (requestedScan !== null) {
+  startupUrl.searchParams.delete('scan');
+  history.replaceState(null, '', startupUrl.href);
+}
+void initialize().then(() => {
+  if (requestedScan !== null && pinnedTabId() !== null && currentPlaylist?.id === requestedScan && source && !failure) {
+    void startScan();
+  }
+});

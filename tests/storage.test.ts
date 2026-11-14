@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cacheFreshness, clearCachedScan, loadCachedScan, loadThemePreference, saveCachedScan, saveThemePreference, type CachedScan } from '../src/storage';
+import { cacheFreshness, clearCachedScan, loadCachedScan, loadScanWindowPreference, loadThemePreference, saveCachedScan, saveScanWindowPreference, saveThemePreference, type CachedScan } from '../src/storage';
 import type { DuplicateGroup } from '../src/types';
 
 const values = new Map<string, string>();
@@ -22,6 +22,17 @@ const scan: CachedScan = {
   groups: [group], unidentified: 0, totalTracks: 245,
   countVerified: true, modificationChecked: true, notes: 'Markers matched.',
 };
+
+test('scan windows default on, remember the choice, and tolerate corrupt preferences', () => {
+  values.delete('amdf:scan-window:v1');
+  assert.equal(loadScanWindowPreference(), true);
+  saveScanWindowPreference(false);
+  assert.equal(loadScanWindowPreference(), false);
+  saveScanWindowPreference(true);
+  assert.equal(loadScanWindowPreference(), true);
+  values.set('amdf:scan-window:v1', 'invalid');
+  assert.equal(loadScanWindowPreference(), true);
+});
 
 test('a cached scan round-trips only for the same playlist', () => {
   clearCachedScan();

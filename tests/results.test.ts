@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { appleMusicId, csvFilename, exportLabels, filterGroups, formatGroupText, formatResultsText, lookalikeIdentities, outcomeTitle, positionParts, scanOutcome, sortGroups, splitPositions, summarize, summaryLine, toCsv, visibleGroups } from '../src/results';
+import { appleMusicId, compareScans, comparisonText, csvFilename, exportLabels, filterGroups, formatGroupText, formatResultsText, lookalikeIdentities, outcomeTitle, positionParts, removalChecklist, scanOutcome, sortGroups, splitPositions, summarize, summaryLine, toCsv, visibleGroups } from '../src/results';
 import type { DuplicateGroup } from '../src/types';
 
 const group = (name: string, artist: string, positions: number[]): DuplicateGroup => ({
@@ -16,6 +16,34 @@ const groups = [
   group('Alpha', 'Artist C', [2, 3, 4]),
   group('Middle, Song', 'Artist A', [5, 6]),
 ];
+
+test('removal checklist interleaves songs in descending position and excludes every kept copy', () => {
+  const entries = removalChecklist(groups);
+  assert.deepEqual(entries.map(entry => entry.position), [9, 6, 4, 3]);
+  assert.deepEqual(entries.map(entry => entry.group.name), ['Zebra', 'Middle, Song', 'Alpha', 'Alpha']);
+  assert.deepEqual(groups.map(group => group.positions), [[1, 9], [2, 3, 4], [5, 6]]);
+  assert.deepEqual(removalChecklist([]), []);
+});
+
+test('rescan comparison tracks exact identities even when counts balance or positions and names change', () => {
+  const before = [group('A', 'Artist', [1, 3, 8]), group('B', 'Artist', [2, 9])];
+  const after = [{ ...group('Renamed A', 'Artist', [1, 4]), identity: 'catalog:A' }, group('C', 'Artist', [2, 5, 6])];
+  const comparison = compareScans(before, after);
+  assert.equal(comparison.extraDelta, 0);
+  assert.equal(comparison.remaining, 3);
+  assert.deepEqual(comparison.resolved.map(group => group.name), ['B']);
+  assert.deepEqual(comparison.added.map(group => group.name), ['C']);
+  assert.match(comparisonText(comparison), /count unchanged.*3 extra copies remaining/);
+});
+
+test('comparison describes partial cleanup, a clean playlist, and increasing duplicates', () => {
+  const before = [group('A', 'Artist', [1, 3, 8])];
+  const partial = compareScans(before, [group('A', 'Artist', [1, 3])]);
+  assert.match(comparisonText(partial), /1 fewer extra copy · 1 extra copy remaining/);
+  assert.equal(partial.resolved.length, 0);
+  assert.match(comparisonText(compareScans(before, [])), /2 fewer extra copies · 0 extra copies remaining/);
+  assert.match(comparisonText(compareScans([], before)), /2 more extra copies/);
+});
 
 test('filter matches song and artist case-insensitively and trims the query', () => {
   assert.deepEqual(filterGroups(groups, '  alpha ').map(g => g.name), ['Alpha']);
