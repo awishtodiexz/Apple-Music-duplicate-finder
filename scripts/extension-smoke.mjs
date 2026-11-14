@@ -299,8 +299,9 @@ try {
   const handoff = await open('duplicates');
   await handoff.evaluate(() => localStorage.removeItem('amdf:scan-window:v1'));
   await handoff.reload();
-  await until(() => handoff.evaluate(() => !document.querySelector('#scan').disabled && document.querySelector('#scan-window').checked),
-    'default scan-window preference');
+  // Polled straight after a reload, so the new document may not have its controls parsed yet.
+  await until(() => handoff.evaluate(() => document.querySelector('#scan')?.disabled === false &&
+    document.querySelector('#scan-window')?.checked === true), 'default scan-window preference');
   assert.equal(await handoff.evaluate(() => document.querySelector('#scan-window').checked), true);
   await apple.evaluate(() => { window.fixtureDelay = 500; window.requests = []; });
   await handoff.evaluate(() => document.querySelector('#scan').click());
