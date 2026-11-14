@@ -12,46 +12,63 @@
   --action: #c7284e;
   --action-hover: #ae2043;
   --soft: #f4e9ed;
+  --gutter: 20px;
   background: var(--bg);
   color: var(--ink);
 }
 * { box-sizing: border-box; }
-body { width: 380px; max-width: 100vw; min-width: 300px; margin: 0 auto; }
+/* The toolbar popup autosizes from a tiny provisional viewport, so any viewport-relative
+   width or media query here collapses it. Keep 380px fixed; only the pop-out window,
+   which has a real viewport, is allowed to shrink below it. */
+html { scrollbar-gutter: stable; scroll-padding-top: calc(var(--controls-height, 0px) + 8px); }
+body { width: 380px; margin: 0 auto; }
+html[data-window="pop-out"] body { width: auto; max-width: 380px; }
 /* Use document scrolling: popup viewport units can feed back into Chrome autosizing. */
-main { padding: 20px; }
+header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "eyebrow toggle" "title title"; align-items: center; row-gap: 8px; padding: 20px var(--gutter) 0; }
+main { padding: 14px var(--gutter) 0; }
 main > * + * { margin-top: 14px; }
-header { margin-bottom: 2px; }
-.eyebrow-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: var(--muted); }
-h1 { font-size: 22px; line-height: 1.15; letter-spacing: -.6px; margin: 0; font-weight: 750; }
+.eyebrow { grid-area: eyebrow; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: var(--muted); }
+h1 { grid-area: title; font-size: 22px; line-height: 1.15; letter-spacing: -.6px; margin: 0; font-weight: 700; }
 h1 span { color: var(--accent); }
 .playlist { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-h2 { font-size: 12px; font-weight: 650; margin: 0; }
-.playlist h2 { color: var(--muted); font-weight: 500; margin-bottom: 5px; }
-#playlist-name { font-size: 16px; font-weight: 650; letter-spacing: -.25px; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
-button { width: 100%; border: 0; border-radius: 10px; background: var(--action); color: #fff; min-height: 44px; padding: 11px 12px; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+h2 { font-size: 12px; font-weight: 600; margin: 0; }
+.playlist h2 { color: var(--muted); font-weight: 400; margin-bottom: 5px; }
+#playlist-name { font-size: 16px; font-weight: 600; letter-spacing: -.25px; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+/* A clamped name is a toggle, so keyboard and touch users can read all of it. */
+#playlist-name[role="button"] { cursor: pointer; }
+#playlist-name[data-expanded="true"] { display: block; -webkit-line-clamp: unset; }
+button { width: 100%; border: 0; border-radius: 10px; background: var(--action); color: #fff; min-height: 44px; padding: 11px 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 button:hover:enabled { background: var(--action-hover); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-button:disabled { background: var(--soft); color: var(--muted); cursor: default; }
-.theme-toggle { width: auto; min-height: 26px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
-.theme-toggle:hover:enabled { background: var(--soft); color: var(--ink); }
+/* No fill when disabled, so only an enabled button looks clickable. */
+button:disabled { border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: default; }
+.theme-toggle { grid-area: toggle; width: auto; min-height: 28px; padding: 3px 9px; border: 1px solid var(--control-line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
+.theme-toggle:hover:enabled { background: var(--soft); border-color: var(--accent); color: var(--ink); }
 .link-button { width: auto; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--accent); font: inherit; font-size: 11px; font-weight: 600; text-decoration: none; cursor: pointer; }
 .link-button:hover:enabled { background: transparent; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 /* Inside a sentence the underline is what marks it as an action. */
 #results-empty .link-button { text-decoration: underline; text-underline-offset: 2px; }
 #pop-out::after { content: " \2197" / ""; }
+.actions { display: flex; gap: 8px; align-items: center; }
+#scan { flex: 1 1 auto; width: auto; min-width: 0; }
 #status { padding: 0 1px; }
 #status h2 { font-size: 14px; line-height: 1.4; }
 #status-detail { font-size: 12px; line-height: 1.6; color: var(--muted); margin: 4px 0 0; white-space: pre-line; }
-#status-code { font-size: 10px; line-height: 1.4; color: var(--muted); margin: 6px 0 0; }
+/* A problem next to results that are still valid: the title stays neutral, so the bar carries the error. */
+#status-problem { font-size: 12px; line-height: 1.6; color: var(--ink); margin: 8px 0 0; padding-left: 9px; border-left: 3px solid var(--line); }
+#status-problem[data-error="true"] { border-left-color: var(--accent); }
+#status-code { font-size: 11px; line-height: 1.4; color: var(--muted); margin: 6px 0 0; }
 #status[data-error="true"] h2 { color: var(--accent); }
 progress { display: block; width: 100%; height: 5px; margin-top: 12px; accent-color: var(--accent); }
 #results { margin-top: 18px; }
-.results-head { display: flex; align-items: center; gap: 8px; }
-#results-title { color: var(--muted); font-size: 11px; line-height: 1.5; letter-spacing: .7px; text-transform: uppercase; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-#results-min { flex: 0 0 auto; width: auto; max-width: 120px; }
-#results-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 10px; }
-#results-search, #results-sort, #results-min { min-height: 34px; border: 1px solid var(--control-line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; padding: 6px 9px; }
+#results-title { color: var(--muted); font-size: 11px; line-height: 1.5; letter-spacing: .7px; text-transform: uppercase; overflow-wrap: anywhere; }
+#results-title:focus-visible { outline-offset: 2px; }
+#results-note { margin: 2px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+/* The list is long, so the search, sort and export controls stay in reach while it scrolls. */
+#results-controls { position: sticky; top: 0; z-index: 2; margin-top: 2px; padding: 2px 0; background: var(--bg); }
+#results-toolbar { display: grid; gap: 6px; }
+.toolbar-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#results-search, #results-sort, #results-min { min-height: 34px; border: 1px solid var(--control-line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; padding: 5px 9px; }
 #results-search::placeholder { color: var(--muted); opacity: 1; }
 #results-sort, #results-min {
   appearance: none;
@@ -62,49 +79,71 @@ progress { display: block; width: 100%; height: 5px; margin-top: 12px; accent-co
   background-repeat: no-repeat;
   cursor: pointer;
 }
-.search-field { position: relative; grid-column: 1 / -1; min-width: 0; }
+.search-field { position: relative; flex: 1 1 130px; min-width: 0; }
 /* Magnifier drawn in CSS: a ring plus a handle, both in the muted ink. */
 .search-field::before, .search-field::after { content: ""; position: absolute; pointer-events: none; }
 .search-field::before { left: 10px; top: 50%; width: 9px; height: 9px; margin-top: -7px; border: 1.75px solid var(--muted); border-radius: 50%; }
 .search-field::after { left: 20.5px; top: 50%; width: 1.75px; height: 5.5px; margin-top: 2.5px; background: var(--muted); border-radius: 1px; transform: rotate(-45deg); }
 #results-search { width: 100%; padding-left: 31px; }
 #results-search::-webkit-search-cancel-button { cursor: pointer; }
-#results-sort { width: 100%; min-width: 0; }
-.result-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.result-actions .secondary { margin-top: 0; width: auto; flex: 1 1 auto; min-width: 54px; min-height: 34px; padding: 7px 9px; font-size: 12px; background: var(--surface); border: 1px solid var(--control-line); color: var(--ink); }
-.result-actions .secondary:hover:enabled { background: var(--soft); border-color: var(--accent); }
-.result-actions .secondary:disabled { background: var(--surface); border-color: var(--line); color: var(--muted); }
+#results-min { flex: 0 0 auto; width: auto; }
+#results-sort { flex: 1 1 100px; width: auto; min-width: 0; }
+.toolbar-row .secondary { margin-top: 0; width: auto; flex: 0 1 auto; padding: 0 10px; white-space: nowrap; }
+.toolbar-row .secondary:hover:enabled { background: var(--soft); border-color: var(--accent); }
 #results-feedback { min-height: 0; margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 #results-feedback:empty { display: none; }
 #results-empty { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-#results-scroll { margin-top: 7px; }
+#results-scroll { margin-top: 2px; }
 ul { list-style: none; padding: 0; margin: 0; }
-#scan-notes { font-size: 12px; line-height: 1.6; white-space: pre-line; color: var(--ink); background: var(--soft); padding: 10px; border-radius: 8px; margin: 0 0 10px; }
+#scan-notes { font-size: 12px; line-height: 1.6; white-space: pre-line; color: var(--ink); background: var(--soft); padding: 10px; border-radius: 8px; margin: 4px 0 8px; }
+/* A row is a song line over a meta line. The sticky controls cover the top of the viewport. */
 li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "song counts" "artist artist" "positions copy" "expand expand";
+  grid-template-areas: "title copy" "meta copy" "lookalike lookalike" "expand expand";
   column-gap: 10px;
-  padding: 11px 1px 12px;
+  padding: 8px 1px;
   border-top: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
-.song { grid-area: song; font-size: 14px; line-height: 1.45; font-weight: 650; margin: 0 0 3px; }
-.artist { grid-area: artist; font-size: 12px; line-height: 1.45; margin: 0 0 6px; color: var(--muted); }
-.counts { grid-area: counts; align-self: start; justify-self: end; margin: 1px 0 0; padding: 2px 8px; border-radius: 999px; background: var(--soft); color: var(--accent); font-size: 11px; font-weight: 700; line-height: 1.45; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.positions { grid-area: positions; position: relative; margin: 2px 0 0; font-size: 12px; line-height: 1.6; color: var(--ink); font-variant-numeric: tabular-nums; word-spacing: 1px; }
-.positions[data-expanded="true"] { max-height: 8.5em; margin-top: 7px; padding: 7px 9px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.more-positions { grid-area: expand; justify-self: start; width: auto; min-height: 30px; margin-top: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; background: transparent; color: var(--accent); }
+.title { grid-area: title; margin: 0; font-size: 14px; line-height: 1.4; }
+.song { font-weight: 600; }
+.artist { margin-left: .4em; font-size: 12px; font-weight: 400; color: var(--muted); }
+.artist::before { content: "— " / "by "; }
+.meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; min-width: 0; }
+.counts { margin: 0; color: var(--accent); font-size: 12px; font-weight: 700; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.positions { position: relative; flex: 1 1 9em; min-width: 0; margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink); font-variant-numeric: tabular-nums; }
+.keep { font-weight: 600; }
+/* The copies to remove read second. Muted ink still clears 4.5:1 on both surfaces. */
+.extras { color: var(--muted); }
+.positions[data-expanded="true"] { flex: 1 0 100%; max-height: 8.5em; margin-top: 6px; padding: 7px 9px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.lookalike { grid-area: lookalike; margin: 2px 0 0; font-size: 11px; line-height: 1.4; color: var(--muted); }
+.more-positions { grid-area: expand; justify-self: start; width: auto; min-height: 28px; margin-top: 6px; padding: 5px 10px; border: 1px solid var(--control-line); border-radius: 999px; font-size: 11px; background: transparent; color: var(--accent); }
 .more-positions:hover:enabled { background: var(--soft); border-color: var(--accent); }
-.copy-group { grid-area: copy; align-self: start; justify-self: end; width: auto; min-height: 28px; margin: -3px 0 0; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; font-weight: 600; background: transparent; color: var(--ink); }
+.copy-group { grid-area: copy; align-self: center; justify-self: end; width: auto; min-width: 64px; min-height: 28px; margin: 0; padding: 3px 10px; border: 1px solid var(--control-line); border-radius: 999px; font-size: 11px; font-weight: 600; background: transparent; color: var(--ink); }
 .copy-group:hover:enabled { background: var(--soft); border-color: var(--accent); }
-.secondary { margin-top: 10px; background: var(--secondary-bg, var(--soft)); color: var(--secondary-ink, var(--accent)); min-height: 36px; font-size: 12px; }
+/* Secondary actions are outlined, so an enabled one reads as a control next to a disabled primary. */
+.secondary { margin-top: 10px; border: 1px solid var(--control-line); background: var(--surface); color: var(--ink); min-height: 34px; padding: 0 12px; font-size: 12px; }
 .secondary:hover:enabled { background: var(--line); }
-#clear-results { display: block; width: auto; min-height: 30px; margin: 12px auto 0; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; }
-#clear-results:hover:enabled { background: var(--soft); color: var(--ink); }
-footer { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 12px; font-size: 11px; line-height: 1.4; color: var(--muted); text-align: center; }
+.more-actions { display: flex; gap: 8px; margin-top: 4px; }
+.more-actions .secondary { flex: 1 1 0; width: auto; min-width: 0; margin-top: 6px; }
+#clear-results { flex: 0 0 auto; width: auto; margin: 0; }
+#scan[hidden] ~ #clear-results { flex: 1 1 auto; }
+#clear-results:hover:enabled { background: var(--soft); }
+footer { border-top: 1px solid var(--line); margin: 18px var(--gutter) 0; padding: 12px 0 20px; font-size: 11px; line-height: 1.4; color: var(--muted); text-align: center; }
 .version { white-space: nowrap; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Once there are results the list is the point: the chrome above it shrinks to fit more rows. */
+.has-results header { grid-template-areas: "title toggle"; padding-top: 10px; }
+.has-results .eyebrow, .has-results h1 br { display: none; }
+.has-results h1 { font-size: 16px; letter-spacing: -.3px; }
+.has-results main { padding-top: 8px; }
+.has-results main > * + * { margin-top: 8px; }
+.has-results .playlist { padding: 0 1px; background: none; border: 0; border-radius: 0; }
+.has-results .playlist h2 { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.has-results #playlist-name { -webkit-line-clamp: 1; font-size: 14px; letter-spacing: -.2px; color: var(--muted); }
+.has-results #results { margin-top: 8px; }
+.has-results footer { margin-top: 12px; }
 [hidden] { display: none !important; }
 /* Auto follows the operating system; the two explicit blocks below win either way.
    Keep the palette in the media query and in [data-theme="dark"] in sync. */
@@ -118,8 +157,6 @@ footer { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 12px;
     --control-line: #6f6f7d;
     --accent: #fa7493;
     --soft: #35262d;
-    --secondary-bg: var(--surface);
-    --secondary-ink: var(--ink);
   }
 }
 :root[data-theme="dark"] {
@@ -132,20 +169,19 @@ footer { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 12px;
   --control-line: #6f6f7d;
   --accent: #fa7493;
   --soft: #35262d;
-  --secondary-bg: var(--surface);
-  --secondary-ink: var(--ink);
 }
 :root[data-theme="light"] { color-scheme: light; }
 /* Windows high-contrast/forced-colors strips the filled button background.
-   Give the block actions an explicit boundary so they still read as buttons. */
+   Give the block actions an outline, and the primary action a heavier one. Its padding gives back the
+   extra border width so the primary stays at 44px. */
 @media (forced-colors: active) {
-  #scan, .secondary, #clear-results { border: 1px solid ButtonText; }
+  .secondary { border: 1px solid ButtonText; }
+  #scan:enabled { border: 2px solid ButtonText; padding-block: 10px; }
   #results-sort, #results-min { appearance: auto; padding-right: 9px; }
   .search-field::before { border-color: GrayText; }
   .search-field::after { background: GrayText; }
   button:disabled { border-color: GrayText; }
 }
 @media (max-width: 340px) {
-  main { padding: 14px 18px; }
-  h1 { font-size: 20px; }
+  :root { --gutter: 18px; }
 }

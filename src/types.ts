@@ -10,7 +10,7 @@ export const bridgeErrorCodes = ['NOT_PLAYLIST', 'PAGE_CHANGED', 'MUSICKIT_UNAVA
 export type BridgeErrorCode = typeof bridgeErrorCodes[number];
 
 /** Failures that are raised by the popup transport/reader and never cross the page boundary. */
-export type LocalErrorCode = 'DEADLINE' | 'LIMIT' | 'TAB_ACCESS';
+export type LocalErrorCode = 'DEADLINE' | 'LIMIT' | 'TAB_ACCESS' | 'TAB_CLOSED';
 export type ErrorCode = BridgeErrorCode | LocalErrorCode;
 
 // A local-only code must never be accepted from the page-world bridge.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { csvFilename, filterGroups, formatGroupText, formatResultsText, sortGroups, summarize, summaryLine, toCsv, visibleGroups } from '../src/results';
+import { appleMusicId, csvFilename, exportLabels, filterGroups, formatGroupText, formatResultsText, lookalikeIdentities, outcomeTitle, positionParts, scanOutcome, sortGroups, splitPositions, summarize, summaryLine, toCsv, visibleGroups } from '../src/results';
 import type { DuplicateGroup } from '../src/types';
 
 const group = (name: string, artist: string, positions: number[]): DuplicateGroup => ({
@@ -40,16 +40,109 @@ test('the minimum-copies filter drops smaller groups and keeps the rest', () => 
   assert.equal(visibleGroups(groups, '', 'playlist', Number.NaN).length, 3);
 });
 
+test('the first position is the copy to keep and every later one is extra', () => {
+  assert.deepEqual(splitPositions(group('Alpha', 'Artist C', [2, 3, 4])), { keep: 2, extra: [3, 4] });
+  assert.deepEqual(splitPositions(group('Pair', 'A', [7, 9])), { keep: 7, extra: [9] });
+  const split = splitPositions(groups[1]!);
+  assert.equal(split.extra.length, groups[1]!.extraCopies);
+});
+
+test('positions read "#1 keep · #101 · #245" and never wrap a line onto a separator', () => {
+  const parts = positionParts(group('Numb', 'Linkin Park', [1, 101, 245]));
+  assert.equal(parts.keep + parts.extras, '#1\u00A0keep\u00A0· #101\u00A0· #245');
+  // Every separator is glued to the position before it, so only a space can break a line.
+  assert.doesNotMatch(parts.keep + parts.extras, / ·/);
+  assert.equal(positionParts(group('Pair', 'A', [1, 2000])).extras, ' #2,000');
+});
+
+test('a long position list is capped and says how many it left out', () => {
+  const many = group('Loop', 'A', Array.from({ length: 6000 }, (_, index) => index + 1));
+  const parts = positionParts(many, 50);
+  assert.equal(parts.keep, '#1\u00A0keep\u00A0·');
+  assert.equal(parts.extras.split('#').length - 1, 49);
+  assert.ok(parts.extras.endsWith('+5,950\u00A0more'));
+  assert.ok(positionParts(many).extras.endsWith('#6,000'));
+});
+
+test('rows that share a name and artist are flagged, and only those', () => {
+  const rows = [
+    { ...group('Numb', 'Linkin Park', [1, 2]), identity: 'catalog:1000' },
+    { ...group('Other', 'Linkin Park', [3, 4]), identity: 'catalog:1001' },
+    { ...group(' numb ', 'LINKIN PARK', [5, 6]), identity: 'catalog:1100' },
+  ];
+  assert.deepEqual([...lookalikeIdentities(rows)], ['catalog:1000', 'catalog:1100']);
+  assert.equal(lookalikeIdentities(groups).size, 0);
+  assert.equal(appleMusicId(rows[2]!), '1100');
+  assert.equal(appleMusicId({ identity: 'library:i.ABC' }), 'i.ABC');
+});
+
+test('export labels name the filtered count and what they export', () => {
+  assert.deepEqual(exportLabels(1200, false), {
+    copy: 'Copy all 1,200', copyName: 'Copy all 1,200 repeated songs',
+    csv: 'CSV (1,200)', csvName: 'Download CSV (1,200) of all repeated songs',
+    copied: 'Copied all 1,200 songs.', downloaded: 'Downloaded all 1,200 songs as CSV.',
+  });
+  const filtered = exportLabels(3, true);
+  assert.equal(filtered.copy, 'Copy all 3');
+  assert.equal(filtered.copyName, 'Copy all 3 matching repeated songs');
+  assert.equal(filtered.csvName, 'Download CSV (3) of matching repeated songs');
+  assert.equal(filtered.copied, 'Copied 3 matching songs.');
+  assert.equal(exportLabels(1, true).downloaded, 'Downloaded 1 matching song as CSV.');
+  // Each visible label stays inside its accessible name.
+  for (const labels of [exportLabels(1200, false), filtered]) {
+    assert.ok(labels.copyName.startsWith(labels.copy));
+    assert.ok(labels.csvName.includes(labels.csv));
+  }
+});
+
 test('single-group copy text carries the song, copy count and positions', () => {
   assert.equal(formatGroupText(groups[1]!), 'Alpha — Artist C\n3 copies · positions 2, 3, 4');
 });
 
-test('summary counts groups, extra copies, and unidentified entries', () => {
+test('summary counts groups, extra copies, and unidentified songs', () => {
   const summary = summarize(10, groups, 2);
   assert.deepEqual(summary, { scanned: 10, groups: 3, extraCopies: 4, unidentified: 2 });
-  assert.match(summaryLine(summary), /10 songs scanned\n3 songs appear more than once · 4 extra copies/);
-  assert.match(summaryLine(summarize(1, [group('One', 'A', [1, 2])], 0)), /1 song appears more than once · 1 extra copy/);
-  assert.match(summaryLine(summarize(245, [], 0)), /245 songs scanned\nNo duplicate songs found\./);
+  assert.equal(summaryLine(summary), '10 songs checked · 3 repeated songs · 4 extra copies');
+  assert.equal(summaryLine(summarize(1, [group('One', 'A', [1, 2])], 0)), '1 song checked · 1 repeated song · 1 extra copy');
+});
+
+test('a playlist with no songs says so instead of claiming a check', () => {
+  const summary = summarize(0, [], 0);
+  assert.equal(scanOutcome(summary), 'empty');
+  assert.equal(outcomeTitle.empty, 'This playlist is empty');
+  assert.equal(summaryLine(summary), 'There are no songs to check.');
+});
+
+test('songs without Apple Music IDs are not reported as repeat-free', () => {
+  const one = summarize(1, [], 1);
+  assert.equal(scanOutcome(one), 'unchecked');
+  assert.equal(outcomeTitle.unchecked, 'Nothing could be checked');
+  assert.equal(summaryLine(one), '1 song had no Apple Music ID, so repeats could not be checked.');
+  const many = summarize(245, [], 245);
+  assert.equal(scanOutcome(many), 'unchecked');
+  assert.equal(summaryLine(many), '245 songs had no Apple Music ID, so repeats could not be checked.');
+  assert.doesNotMatch(summaryLine(many), /no repeats|No duplicate/);
+});
+
+test('a clean scan reports the songs checked and how many lacked an ID', () => {
+  const clean = summarize(245, [], 0);
+  assert.equal(scanOutcome(clean), 'clean');
+  assert.equal(outcomeTitle.clean, 'No repeated songs');
+  assert.equal(summaryLine(clean), '245 songs checked · no repeats found');
+  assert.equal(summaryLine(summarize(1, [], 0)), '1 song checked · no repeats found');
+  assert.equal(summaryLine(summarize(245, [], 1)),
+    '245 songs checked · no repeats found\n1 song had no Apple Music ID and was skipped.');
+  assert.equal(summaryLine(summarize(245, [], 3)),
+    '245 songs checked · no repeats found\n3 songs had no Apple Music ID and were skipped.');
+});
+
+test('a scan with repeats reports the title and plural counts', () => {
+  const summary = summarize(245, groups, 0);
+  assert.equal(scanOutcome(summary), 'duplicates');
+  assert.equal(outcomeTitle.duplicates, 'Scan complete');
+  assert.equal(summaryLine(summary), '245 songs checked · 3 repeated songs · 4 extra copies');
+  assert.equal(summaryLine(summarize(1000, [group('One', 'A', [1, 2])], 0)),
+    '1,000 songs checked · 1 repeated song · 1 extra copy');
 });
 
 test('copy text includes all positions and scan notes', () => {

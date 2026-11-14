@@ -163,13 +163,30 @@ try {
     await popup.evaluate(() => document.querySelector('#scan').click());
     await until(() => popup.evaluate(() => !document.querySelector('#scan').disabled), 'scan completion');
   }
+  // Chrome sizes a toolbar popup from a tiny provisional viewport, so a width tied to
+  // the viewport (vw, %, or a media query) collapses it. The designed width is 380px.
+  // Once the document scrolls, Chrome adds one vertical scrollbar column outside it.
+  const assertPopupWidth = async (popup, state) => {
+    const { innerWidth, bodyWidth } = await popup.evaluate(() => ({
+      innerWidth: window.innerWidth, bodyWidth: document.body.getBoundingClientRect().width }));
+    assert.equal(bodyWidth, 380, `toolbar popup body width ${state}`);
+    assert.ok(innerWidth >= 380 && innerWidth <= 395, `toolbar popup viewport width ${state} was ${innerWidth}`);
+    return innerWidth;
+  };
   for (const mode of ['legacy', 'v3']) {
     const popup = await open('duplicates', mode);
+    assert.equal(await assertPopupWidth(popup, 'at ready'), 380, 'ready popup has no scrollbar column');
     await scan(popup);
+    await assertPopupWidth(popup, 'after scan');
     assert.equal(await popup.evaluate(() => document.querySelector('#status-title').textContent), 'Scan complete');
     assert.equal(await popup.evaluate(() => document.querySelector('#version').textContent), `v${version}`);
-    assert.equal(await popup.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: #1 · #101 · #245');
-    assert.equal(await popup.evaluate(() => document.querySelector('.counts').textContent), '3 copies');
+    assert.equal(await popup.evaluate(() => document.querySelector('.positions').textContent.replace(/\u00a0/g, ' ')), 'Playlist positions: #1 keep · #101 · #245');
+    assert.equal(await popup.evaluate(() => document.querySelector('.counts').textContent), '3 copies · 2 extra');
+    // The real toolbar popup shows the first result near the top instead of below the fold.
+    const firstRowTop = await popup.evaluate(() => Math.round(document.querySelector('#duplicate-list li').getBoundingClientRect().top));
+    // Font metrics differ by platform (292px on Windows, about 308px on Linux); the old layout was 485px or more.
+    assert.ok(firstRowTop <= 320, `first result row starts at ${firstRowTop}px in the real popup`);
+    assert.equal(await popup.evaluate(() => document.querySelectorAll('#results-scroll[tabindex], #results-scroll[role]').length), 0);
     assert.equal(await popup.evaluate(() => document.querySelectorAll('img').length), 0);
     // Connect metadata (reused as the scan baseline) + 3 track pages + validation metadata.
     assert.equal((await apple.evaluate(() => window.requests)).length, 5);
@@ -181,7 +198,7 @@ try {
     console.log(`PASS (${mode}): toolbar popup, real activeTab grant, MAIN injection, pagination, safe rendering and accessibility`);
   }
   for (const [scenario, title, message] of [
-    ['unavailable', 'Could not connect', /MusicKit instance is unavailable/],
+    ['unavailable', 'Could not connect', /hasn't finished loading/],
     ['auth', 'Could not connect', /Sign in/], ['expired', 'Scan failed', /Sign in/],
     ['malformed', 'Scan failed', /unexpected response/], ['resolvedError', 'Scan failed', /Sign in/],
   ]) {
@@ -219,9 +236,9 @@ try {
   await resilient.evaluate(() => document.querySelector('#scan').click());
   await until(() => resilient.evaluate(() => !document.querySelector('#scan').disabled), 'failed rescan');
   assert.equal(await resilient.evaluate(() => document.querySelector('#status-title').textContent), 'Scan failed');
-  assert.match(await resilient.evaluate(() => document.querySelector('#status-detail').textContent), /Showing the last completed scan from/);
+  assert.match(await resilient.evaluate(() => document.querySelector('#status-detail').textContent), /Showing your last scan from/);
   assert.equal(await resilient.evaluate(() => document.querySelectorAll('#duplicate-list li').length), 1);
-  assert.equal(await resilient.evaluate(() => document.querySelector('.positions').textContent), 'Playlist positions: #1 · #101 · #245');
+  assert.equal(await resilient.evaluate(() => document.querySelector('.positions').textContent.replace(/\u00a0/g, ' ')), 'Playlist positions: #1 keep · #101 · #245');
   await until(() => badgeIs(resilient, '1'), 'badge after failed rescan');
   await apple.evaluate(() => { window.scenario = 'duplicates'; });
   await resilient.evaluate(() => document.querySelector('#scan').click());
@@ -259,8 +276,18 @@ try {
     }
   }, 'pop-out window connection');
   assert.equal(await popped.evaluate(() => document.querySelector('#pop-out').hidden), true);
+  // The pop-out stays open when its tab moves on. With only activeTab and scripting, tabs.onUpdated
+  // still reports the move (including Apple Music's same-document navigation), so it must not keep
+  // offering "Scan again" for a page that is no longer a playlist.
+  const popoutTitle = () => popped.evaluate(() => document.querySelector('#status-title').textContent);
+  await apple.evaluate(() => history.pushState({}, '', '/us/browse'));
+  await until(async () => (await popoutTitle()) === 'Open a playlist', 'pop-out notices its tab left the playlist');
+  assert.equal(await popped.evaluate(() => document.querySelector('#scan').hidden), true);
+  assert.equal(await popped.evaluate(() => document.querySelector('#status').dataset.error), 'false');
+  await apple.evaluate(() => history.pushState({}, '', '/us/library/playlist/p.fixture'));
+  await until(async () => ['Ready to scan', 'Showing last scan'].includes(await popoutTitle()), 'pop-out reconnects when its tab returns');
   await popped.close();
-  console.log('PASS: pop-out window opens from the real toolbar popup and connects to the same tab');
+  console.log('PASS: pop-out window opens from the real toolbar popup, connects to the same tab and follows it off the playlist');
 
   const blocked = await open('duplicates');
   await apple.goto('https://blocked.test/');

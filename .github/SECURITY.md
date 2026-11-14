@@ -1,6 +1,6 @@
 # Security policy
 
-Only the latest release, currently 1.4.2, receives fixes.
+Only the latest release, currently 1.5.0, receives fixes.
 
 ## Reporting a vulnerability
 

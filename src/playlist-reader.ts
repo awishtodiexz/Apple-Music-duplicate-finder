@@ -5,12 +5,16 @@ export interface PlaylistSource {
   metadata(signal?: AbortSignal): Promise<PlaylistInfo>;
   page(offset: number, signal?: AbortSignal): Promise<TrackPage>;
 }
-export interface ScanProgress {
+interface ProgressCounts {
   retrieved: number;
   total: number | null;
   elapsedMs: number;
-  phase: 'reading' | 'validating';
 }
+type ProgressPhase =
+  | { phase: 'reading' | 'validating' }
+  // Reported before the wait, so a slow request is visible instead of looking frozen.
+  | { phase: 'retrying'; attempt: number; attempts: number };
+export type ScanProgress = ProgressCounts & ProgressPhase;
 export interface PlaylistScan {
   info: PlaylistInfo;
   tracks: Track[];
@@ -109,6 +113,16 @@ export async function readPlaylist(
     }
     return base;
   };
+  let total: number | null = null;
+  const tracks: Track[] = [];
+  const notify = (event: ProgressPhase): void => {
+    try {
+      onProgress({ retrieved: tracks.length, total, elapsedMs: now() - started, ...event });
+    } catch (error) {
+      // A rendering failure in the popup must not discard an otherwise valid scan.
+      console.error('[amdf] progress handler failed', error);
+    }
+  };
   async function readWithRetry<T>(operation: () => Promise<T>): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       try {
@@ -116,6 +130,7 @@ export async function readPlaylist(
       } catch (error) {
         if (!(error instanceof ScanError) || !retryableErrors.has(error.code) ||
           attempt >= retryDelaysMs.length) throw error;
+        notify({ phase: 'retrying', attempt: attempt + 1, attempts: retryDelaysMs.length });
         await sleep(retryDelay(attempt, error));
         check();
       }
@@ -123,17 +138,11 @@ export async function readPlaylist(
   }
   try {
     const info = options.info ?? await readWithRetry(() => source.metadata(controller.signal));
-    let total = verifiedTotal(info.total);
-    const tracks: Track[] = [];
+    total = verifiedTotal(info.total);
     let metadataChars = 0;
-    const progress = (phase: ScanProgress['phase']): void => {
+    const progress = (phase: 'reading' | 'validating'): void => {
       check();
-      try {
-        onProgress({ retrieved: tracks.length, total, elapsedMs: now() - started, phase });
-      } catch (error) {
-        // A rendering failure in the popup must not discard an otherwise valid scan.
-        console.error('[amdf] progress handler failed', error);
-      }
+      notify({ phase });
       check();
     };
     if (total !== null && total > maxTracks) throw new ScanError('LIMIT');

@@ -8,69 +8,76 @@
     <script type="module" src="popup.js"></script>
   </head>
   <body>
+    <header>
+      <h1>Apple Music <br><span>Duplicate Finder</span></h1>
+      <div class="eyebrow">READ-ONLY PLAYLIST SCANNER</div>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Theme: Auto. Switch to Light.">Theme: Auto</button>
+    </header>
     <main>
-      <header>
-        <div class="eyebrow-row">
-          <div class="eyebrow">READ-ONLY PLAYLIST SCANNER</div>
-          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Theme: Auto. Switch to Light.">Theme: Auto</button>
-        </div>
-        <h1>Apple Music<br> <span>Duplicate Finder</span></h1>
-      </header>
       <section class="playlist" aria-labelledby="playlist-label">
         <h2 id="playlist-label">Current playlist</h2>
         <p id="playlist-name" dir="auto">Detecting playlist…</p>
       </section>
-      <button id="scan" type="button" disabled>Scan for Duplicates</button>
+      <div class="actions">
+        <button id="scan" type="button" disabled>Scan for duplicates</button>
+        <button id="clear-results" class="secondary" type="button" hidden>Clear results</button>
+      </div>
       <button id="cancel" class="secondary" type="button" hidden>Cancel scan</button>
       <section id="status">
         <h2 id="status-title">Connecting to Apple Music…</h2>
-        <p id="status-detail">Keep this popup open while scanning.</p>
+        <p id="status-detail">Keep this open while scanning.</p>
+        <p id="status-problem" hidden></p>
         <p id="status-code" hidden></p>
         <progress id="scan-progress" aria-label="Playlist scan progress" hidden></progress>
       </section>
-      <p id="status-announcer" class="visually-hidden" role="status" aria-live="polite"></p>
+      <p id="status-announcer" class="visually-hidden" role="status"></p>
       <section id="results" hidden aria-labelledby="results-title">
-        <div class="results-head">
-          <h2 id="results-title">Repeated songs</h2>
-          <label class="visually-hidden" for="results-min">Minimum copies</label>
-          <select id="results-min">
-            <option value="2">2+ copies</option>
-            <option value="3">3+ copies</option>
-            <option value="4">4+ copies</option>
-            <option value="5">5+ copies</option>
-          </select>
-        </div>
-        <div id="results-toolbar">
-          <label class="visually-hidden" for="results-search">Search repeated songs</label>
-          <div class="search-field">
-            <input id="results-search" type="search" placeholder="Search song or artist" autocomplete="off" spellcheck="false">
+        <h2 id="results-title" tabindex="-1">Repeated songs</h2>
+        <p id="results-note">Matched by Apple Music ID, not title. Only the first position is kept.</p>
+        <div id="results-controls">
+          <div id="results-toolbar">
+            <div class="toolbar-row">
+              <label class="visually-hidden" for="results-search">Search repeated songs</label>
+              <div class="search-field">
+                <input id="results-search" type="search" placeholder="Search song or artist" autocomplete="off" spellcheck="false">
+              </div>
+              <label class="visually-hidden" for="results-min">Minimum copies</label>
+              <select id="results-min">
+                <option value="2">2+ copies</option>
+                <option value="3">3+ copies</option>
+                <option value="4">4+ copies</option>
+                <option value="5">5+ copies</option>
+              </select>
+            </div>
+            <div class="toolbar-row">
+              <label class="visually-hidden" for="results-sort">Sort repeated songs</label>
+              <select id="results-sort">
+                <option value="playlist">Playlist order</option>
+                <option value="copies">Most copies</option>
+                <option value="song">Song A–Z</option>
+                <option value="artist">Artist A–Z</option>
+              </select>
+              <button id="copy-results" class="secondary" type="button" aria-label="Copy all repeated songs">Copy all</button>
+              <button id="download-results" class="secondary" type="button" aria-label="Download repeated songs as CSV">CSV</button>
+            </div>
           </div>
-          <label class="visually-hidden" for="results-sort">Sort repeated songs</label>
-          <select id="results-sort">
-            <option value="playlist">Playlist order</option>
-            <option value="copies">Most copies</option>
-            <option value="song">Song A–Z</option>
-            <option value="artist">Artist A–Z</option>
-          </select>
-          <div class="result-actions">
-            <button id="copy-results" class="secondary" type="button" aria-label="Copy list of visible results">Copy list</button>
-            <button id="download-results" class="secondary" type="button" aria-label="Download visible results as CSV">CSV</button>
-          </div>
+          <p id="results-feedback" role="status"></p>
         </div>
-        <p id="results-feedback" role="status" aria-live="polite"></p>
         <p id="results-empty" hidden>No matching songs. <button id="reset-filters" class="link-button" type="button">Clear search and filters</button></p>
-        <div id="results-scroll" tabindex="0" role="region" aria-label="Duplicate songs and playlist positions">
+        <div id="results-scroll">
           <p id="scan-notes" hidden></p>
           <ul id="duplicate-list"></ul>
         </div>
-        <button id="show-more" class="secondary" type="button" hidden>Show more duplicates</button>
+        <div class="more-actions">
+          <button id="show-more" class="secondary" type="button" hidden>Show more songs</button>
+          <button id="show-all" class="secondary" type="button" hidden>Show all</button>
+        </div>
       </section>
-      <p id="results-announcer" class="visually-hidden" role="status" aria-live="polite"></p>
-      <button id="clear-results" class="secondary" type="button" aria-label="Clear results" hidden>Clear results</button>
-      <footer>Only looks. Never changes your music. <span id="version" class="version"></span>
-        <span id="popout-separator" aria-hidden="true" hidden>·</span>
-        <button id="pop-out" class="link-button" type="button" hidden>Open in a window</button>
-      </footer>
+      <p id="results-announcer" class="visually-hidden" role="status"></p>
     </main>
+    <footer>Only looks. Never changes your music. <span id="version" class="version"></span>
+      <span id="popout-separator" aria-hidden="true" hidden>·</span>
+      <button id="pop-out" class="link-button" type="button" hidden>Open in a window</button>
+    </footer>
   </body>
 </html>

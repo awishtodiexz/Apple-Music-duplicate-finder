@@ -83,6 +83,24 @@ export function auditAccessibility() {
     }
   }
 
+  // A tab stop that is not a control must earn it by scrolling something, or keyboard users stop on nothing.
+  for (const stop of document.querySelectorAll('[tabindex="0"]')) {
+    if (!isVisible(stop) || stop.matches('button, a[href], input, select, textarea, [role="button"]')) continue;
+    if (stop.scrollHeight <= stop.clientHeight + 1 && stop.scrollWidth <= stop.clientWidth + 1) {
+      findings.push(`${describe(stop)} is a tab stop that does not scroll`);
+    }
+  }
+
+  // Page chrome must be real landmarks: one banner, one main and one contentinfo, with the
+  // header and footer outside <main> (inside it they lose their landmark roles).
+  for (const [name, selector] of [['banner', 'body > header'], ['main', 'body > main'], ['contentinfo', 'body > footer']]) {
+    const count = document.querySelectorAll(selector).length;
+    if (count !== 1) findings.push(`Expected exactly one ${name} landmark (${selector}), found ${count}`);
+  }
+  if (document.querySelector('main header, main footer, section header, section footer')) {
+    findings.push('A header or footer inside main or a section is not a banner or contentinfo landmark');
+  }
+
   const headings = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')].filter(isVisible);
   if (!headings.some(heading => heading.tagName === 'H1')) findings.push('No visible h1 heading');
   let previousLevel = 0;

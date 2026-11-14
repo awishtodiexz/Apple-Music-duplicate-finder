@@ -223,7 +223,7 @@ test('the bridge rejects unknown actions, invalid kinds and overlong playlist ID
 test('unexpected errors are logged without their message or credentials', (t) => {
   const logged: unknown[][] = [];
   t.mock.method(console, 'error', (...args: unknown[]) => { logged.push(args); });
-  assert.match(errorMessage(new TypeError('AUTH_TOKEN=secret; Cookie: session=secret')), /unexpected error/);
+  assert.match(errorMessage(new TypeError('AUTH_TOKEN=secret; Cookie: session=secret')), /Something went wrong in the extension/);
   const rendered = logged.flat().map(value =>
     value instanceof Error ? `${value.name}: ${value.message}` : String(value)).join(' ');
   assert.match(rendered, /TypeError/);
@@ -237,6 +237,6 @@ test('hostile error objects cannot break or leak through diagnostics', (t) => {
     get message(): string { throw new Error('AUTH_TOKEN=secret'); },
     get name(): string { throw new Error('AUTH_TOKEN=secret'); },
   };
-  assert.match(errorMessage(hostile), /unexpected error/);
+  assert.match(errorMessage(hostile), /Something went wrong in the extension/);
   assert.doesNotMatch(JSON.stringify(logged), /AUTH_TOKEN|secret/);
 });

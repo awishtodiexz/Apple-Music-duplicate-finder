@@ -8,9 +8,9 @@ When you open the popup on a playlist, it reads the playlist ID from the tab's U
 
 Tracks are fetched 100 at a time, one page after another. The reader checks that the pages line up: offsets are contiguous, continuation links point at the same playlist, and the total matches when Apple provides one. The playlist's name, modification date and version hash are checked again at the end. If anything doesn't add up, the scan fails rather than showing results that might be incomplete.
 
-Network errors, timeouts, rate limits and 5xx responses are retried twice with backoff, honouring `Retry-After` up to 60 seconds. Other errors are not retried.
+Network errors, timeouts, rate limits and 5xx responses are retried twice with backoff, honoring `Retry-After` up to 60 seconds. Other errors are not retried.
 
-A scan is capped at ten minutes, 50,000 entries, 2,000 pages and 16 million characters of metadata. Cancelling or hitting a limit discards the scan; if there was a previous result, it stays on screen, labelled as the previous scan.
+A scan is capped at ten minutes, 50,000 entries, 2,000 pages and 16 million characters of metadata. Canceling or hitting a limit discards the scan; if there was a previous result, it stays on screen, labeled as the previous scan.
 
 ## Matching duplicates
 
