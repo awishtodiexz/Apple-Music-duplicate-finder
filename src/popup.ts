@@ -150,7 +150,7 @@ function pinnedTabId(): number | null {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-// Only the pop-out has a real, resizable viewport; its CSS reflows down to 340px.
+// Only the pop-out has a real, resizable viewport; its CSS reflows down to 240px.
 if (pinnedTabId() !== null) document.documentElement.dataset.window = 'pop-out';
 
 function updatePopOut(): void {
@@ -194,7 +194,12 @@ function setStatus(title: string, detail: string, { error = false, code, problem
   statusCode.textContent = code ? `Error code: ${code}` : '';
   statusCode.hidden = !code;
   announceStatus(phase ?? title, phase !== undefined,
-    [title, detail, problem?.message ?? '', code ? `Error code ${code}` : ''].filter(Boolean).join('. '));
+    [title, detail, problem?.message ?? '', code ? `Error code ${code}` : ''].filter(Boolean).map(endSentence).join(' '));
+}
+
+/** Titles carry no final period and details do; a screen reader needs exactly one pause between them. */
+function endSentence(text: string): string {
+  return /[.!?…]$/.test(text) ? text : `${text}.`;
 }
 
 // Progress text changes every page, and a screen reader that repeats it is unusable.
@@ -502,6 +507,7 @@ const refreshAdvice: Record<CacheFreshness, string> = {
 const neutralConnectTitles: Readonly<Record<string, string | undefined>> = {
   NOT_PLAYLIST: 'Open a playlist',
   LIMIT: 'Playlist too large to scan',
+  TAB_CLOSED: 'Apple Music tab closed',
 };
 
 function cacheCurrent(playlist: PlaylistRef, info: PlaylistInfo, countVerified: boolean,
@@ -598,6 +604,14 @@ function showPlaylistName(name: string, tooltip = ''): void {
   updateNameToggle();
 }
 
+// The sticky bar grows as its toolbar wraps in a narrow pop-out, so the room scrolling
+// must leave above a focused row (scroll-padding-top in the CSS) follows its live height.
+const resultsControls = element('results-controls');
+function syncControlsHeight(): void {
+  document.documentElement.style.setProperty('--controls-height', `${resultsControls.offsetHeight}px`);
+}
+new ResizeObserver(syncControlsHeight).observe(resultsControls);
+
 /** With results on screen the header shrinks (see .has-results) so more rows fit. */
 function setResultsView(shown: boolean): void {
   if (document.body.classList.contains('has-results') === shown) return;
@@ -637,7 +651,7 @@ async function initialize(): Promise<void> {
     const pinned = pinnedTabId();
     let tab: chrome.tabs.Tab | undefined;
     if (pinned !== null) {
-      try { tab = await chrome.tabs.get(pinned); } catch { throw new ScanError('PAGE_CHANGED'); }
+      try { tab = await chrome.tabs.get(pinned); } catch { throw new ScanError('TAB_CLOSED'); }
     } else {
       [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     }
@@ -694,6 +708,7 @@ async function initialize(): Promise<void> {
     updateScanLabel();
     updatePopOut();
     if (refocus) focusScan();
+    replayRecheck();
   }
 }
 
@@ -701,14 +716,25 @@ async function initialize(): Promise<void> {
  * A toolbar popup closes when the page changes, but a pop-out stays open, so it follows
  * its tab. tabs.onUpdated and onRemoved need no "tabs" permission: they report the move
  * (with the URL while activeTab holds, and without it after a cross-origin move, which
- * then reads as "not a playlist"). Reconnect only when the playlist is no longer the one shown.
+ * then reads as "not a playlist"). Reconnect when the playlist is no longer the one shown,
+ * or when the last failure offered no retry (a playlist over the limit may have been trimmed).
  */
+let recheckPending = false;
 async function recheckPinnedTab(): Promise<void> {
   const pinned = pinnedTabId();
-  if (pinned === null || busy) return;
+  if (pinned === null) return;
+  if (busy) { recheckPending = true; return; }
   let current: string | null;
   try { current = detectPlaylist((await chrome.tabs.get(pinned)).url ?? '').id; } catch { current = null; }
-  if (!busy && current !== shownPlaylistId) await initialize();
+  if (busy) { recheckPending = true; return; }
+  if (current !== shownPlaylistId || failure === 'none') await initialize();
+}
+
+/** An event that arrived while connecting or scanning described the page before that work finished. */
+function replayRecheck(): void {
+  if (!recheckPending) return;
+  recheckPending = false;
+  void recheckPinnedTab();
 }
 const pinnedTab = pinnedTabId();
 if (pinnedTab !== null) {
@@ -726,9 +752,11 @@ function reveal(count: number): void {
   const firstNew = displayed;
   appendBatch(count);
   const first = list.children[firstNew] as HTMLElement | undefined;
+  // The note joins the sticky bar; measure it before scrolling so the new row lands below the whole bar.
+  resultsFeedback.textContent = `Showing ${number(displayed)} of ${number(visible.length)}.`;
+  syncControlsHeight();
   first?.focus({ preventScroll: true });
   first?.scrollIntoView({ block: 'start' });
-  resultsFeedback.textContent = `Showing ${number(displayed)} of ${number(visible.length)}.`;
 }
 
 showMore.addEventListener('click', () => reveal(batchSize));
@@ -794,6 +822,8 @@ clearResults.addEventListener('click', () => {
   lastCompleted = null;
   clearGroups();
   setBadge(null);
+  // A failed rescan was about the scan being cleared; the button goes back to a first scan.
+  if (failure === 'rescan') failure = null;
   updateScanLabel();
   setStatus('Results cleared', scan.hidden ? 'This playlist cannot be scanned from here.' :
     source ? 'Run a scan to find repeated songs again.' : `Press ${scan.textContent}, then scan again.`);
@@ -921,6 +951,7 @@ scan.addEventListener('click', async () => {
     updatePopOut();
     progress.hidden = true;
     if (restoreFocus) focusScan();
+    replayRecheck();
   }
 });
 

@@ -8,7 +8,7 @@ const everyCode: Record<ErrorCode, true> = {
   CANCELLED: true, DEADLINE: true, LIMIT: true, NOT_PLAYLIST: true, PAGE_CHANGED: true,
   MUSICKIT_UNAVAILABLE: true, AUTH: true, RATE_LIMIT: true, NETWORK: true, TIMEOUT: true,
   NOT_FOUND: true, API: true, SERVER: true, FORMAT: true, INCOMPLETE: true, INTERNAL: true,
-  TAB_ACCESS: true,
+  TAB_ACCESS: true, TAB_CLOSED: true,
 };
 const codes = Object.keys(everyCode) as ErrorCode[];
 const labels = Object.values(recoveryLabel).filter((label): label is string => label !== null);
@@ -22,6 +22,7 @@ test('every error code returns an actionable sentence', (t) => {
   assert.match(errorMessage(new ScanError('LIMIT')), /larger than the extension can scan/);
   assert.match(errorMessage(new ScanError('SERVER')), /temporarily unavailable/);
   assert.match(errorMessage(new ScanError('TAB_ACCESS')), /could not access this tab/);
+  assert.match(errorMessage(new ScanError('TAB_CLOSED')), /Apple Music tab was closed.*open the extension from that tab/);
 });
 
 test('each message names only the control its recovery shows', (t) => {
@@ -51,9 +52,15 @@ test('failures before a connection exists are retried by reconnecting', (t) => {
     assert.equal(failure.recovery, 'reconnect', code);
     assert.ok(!failure.message.includes(recoveryLabel.rescan!), `${code} should not name Retry scan`);
     assert.ok(failure.message.includes(recoveryLabel.reconnect!), `${code} should name Retry connection`);
+    // Nothing has been scanned yet, so a message about a scan's partial results or its time limit is wrong.
+    assert.doesNotMatch(failure.message, /partial results|ten-minute|scan would not|incomplete/i, `${code} describes a scan that never started`);
   }
   assert.deepEqual(connectFailure(new ScanError('NOT_PLAYLIST')),
     { message: errorMessage(new ScanError('NOT_PLAYLIST')), recovery: 'navigate' });
+  // Over the limit is known at connect, where nothing was scanned; mid-scan it keeps the partial-results sentence.
+  assert.deepEqual(connectFailure(new ScanError('LIMIT')),
+    { message: 'This playlist is larger than the extension can scan.', recovery: 'none' });
+  assert.match(errorMessage(new ScanError('LIMIT')), /No partial results were kept./);
   assert.deepEqual(connectFailure(new ScanError('AUTH')),
     { message: errorMessage(new ScanError('AUTH')), recovery: 'reconnect' });
 });
@@ -63,6 +70,7 @@ test('each error code maps to the recovery the popup offers', (t) => {
   const recovery = (code: ErrorCode) => errorRecovery(new ScanError(code));
   assert.equal(recovery('NOT_PLAYLIST'), 'navigate');
   assert.equal(recovery('LIMIT'), 'none');
+  assert.equal(recovery('TAB_CLOSED'), 'navigate');
   for (const code of ['PAGE_CHANGED', 'MUSICKIT_UNAVAILABLE', 'AUTH', 'NOT_FOUND', 'TAB_ACCESS'] as const) {
     assert.equal(recovery(code), 'reconnect', code);
   }

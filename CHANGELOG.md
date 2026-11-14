@@ -1,10 +1,37 @@
 # Changelog
 
-## Unreleased
+## [1.5.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.5.0) (2026-11-14)
+
+### Added
+
+- **Show all** reveals the rest of long results, up to 2,000 songs per press.
 
 ### Changed
 
-- The results copy button now reads **Copy all** with the number of matching songs, and the oversized-results warning names the same action.
+- Clearer titles after a scan: **No repeated songs**, **This playlist is empty** and **Nothing could be checked**.
+- Plainer messages throughout.
+- A slow Apple Music response shows **Retrying (1 of 2)…** progress.
+- A more compact results list shows more songs at once. Each row reads `3 copies · 2 extra` and shows which position is kept, such as `#1 keep · #101 · #245`.
+- A note says that songs are matched by Apple Music ID, not title. Same-title songs that are different Apple Music songs are labeled as such.
+- **Copy all N** and **CSV (N)** say how many songs they export. The warning for results that are too large to keep names the same actions.
+- Search, sort and export stay at the top of the popup while you scroll.
+- Per-song **Copy** confirms on the row.
+- Copied text uses the same one-line summary as the popup.
+- **Cancel scan** is an outlined button.
+- Control borders have stronger contrast, the scan button is easier to spot in high-contrast mode, and button and text sizes are more consistent.
+- The playlist name can be expanded by keyboard or touch.
+
+### Fixed
+
+- The toolbar popup is always its full 380px width, instead of sometimes opening narrow and cramped.
+- A page that is not a playlist shows a neutral **Open a playlist** state instead of an error and a useless retry.
+- A playlist over 50,000 songs says so before scanning, with no scan button.
+- The button always matches the message: **Retry scan**, **Retry connection**, or no button when retrying cannot help.
+- A connection error next to your last scan is shown on its own line, below the summary.
+- Screen readers hear the start of a scan right away.
+- A pop-out window follows its Apple Music tab when the tab changes page or closes, and recovers after an over-limit playlist is trimmed.
+- **Cancel scan** no longer offers **Retry scan**.
+- Focused rows are no longer hidden under the sticky toolbar.
 
 ## [1.4.2](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.4.2) (2026-11-13)
 

@@ -56,13 +56,13 @@ Put the ZIP and its `.sha256` file in the same folder, then run:
 
 ```sh
 # Linux
-sha256sum --check apple-music-duplicate-finder-v1.4.2.zip.sha256
+sha256sum --check apple-music-duplicate-finder-v1.5.0.zip.sha256
 
 # macOS
-shasum -a 256 --check apple-music-duplicate-finder-v1.4.2.zip.sha256
+shasum -a 256 --check apple-music-duplicate-finder-v1.5.0.zip.sha256
 ```
 
 ```powershell
 # Windows
-(Get-FileHash apple-music-duplicate-finder-v1.4.2.zip -Algorithm SHA256).Hash -ieq (Get-Content apple-music-duplicate-finder-v1.4.2.zip.sha256).Split(' ')[0]
+(Get-FileHash apple-music-duplicate-finder-v1.5.0.zip -Algorithm SHA256).Hash -ieq (Get-Content apple-music-duplicate-finder-v1.5.0.zip.sha256).Split(' ')[0]
 ```

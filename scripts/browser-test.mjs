@@ -399,6 +399,15 @@ try {
     await popup.locator('#scan').click();
     await popup.waitForFunction(() => !document.querySelector('#cancel').hidden);
     assert.equal(await popup.evaluate(() => window.__badge), '1');
+    // While scanning, the disabled primary has no fill and Cancel is the one outlined, enabled control.
+    const scanning = await popup.evaluate(() => {
+      const scan = document.querySelector('#scan');
+      const cancel = getComputedStyle(document.querySelector('#cancel'));
+      return { disabled: scan.disabled, fill: getComputedStyle(scan).backgroundColor, cancelBorder: cancel.borderTopWidth };
+    });
+    assert.equal(scanning.disabled, true);
+    assert.equal(scanning.fill, 'rgba(0, 0, 0, 0)');
+    assert.equal(scanning.cancelBorder, '1px');
     await apple.waitForFunction(() => window.requests.some(path => path.includes('/tracks?')));
     await popup.getByRole('button', { name: 'Cancel scan', exact: true }).click();
     await popup.getByRole('heading', { name: 'Scan cancelled', exact: true }).waitFor();
@@ -662,7 +671,8 @@ try {
     // Over the limit is known when the popup connects, so it never offers a scan that cannot work.
     await open('huge');
     await popup.getByRole('heading', { name: 'Playlist too large to scan', exact: true }).waitFor();
-    assert.match(await popup.locator('#status-detail').textContent(), /larger than the extension can scan/);
+    // Nothing was scanned at connect, so the message cannot claim partial results.
+    assert.equal(await popup.locator('#status-detail').textContent(), 'This playlist is larger than the extension can scan.');
     assert.equal(await popup.locator('#status').getAttribute('data-error'), 'false');
     assert.equal(await popup.locator('#status-code').textContent(), 'Error code: LIMIT');
     assert.equal(await popup.locator('#scan').isVisible(), false);
@@ -678,7 +688,7 @@ try {
     await scan();
     assert.equal(await popup.locator('#status-title').textContent(), 'Scan failed');
     assert.equal(await popup.locator('#status').getAttribute('data-error'), 'true');
-    assert.match(await popup.locator('#status-detail').textContent(), /larger than the extension can scan/);
+    assert.equal(await popup.locator('#status-detail').textContent(), 'This playlist is larger than the extension can scan. No partial results were kept.');
     assert.equal(await popup.locator('#status-code').textContent(), 'Error code: LIMIT');
     assert.equal(await popup.locator('#scan').isVisible(), false);
     assert.equal(await popup.evaluate(() => document.activeElement?.id), 'status-title');
@@ -1124,6 +1134,10 @@ try {
     document.body.append(probe);
     const accent = parse(getComputedStyle(probe).color);
     probe.remove();
+    const outline = selector => {
+      const node = document.querySelector(selector);
+      return ratio(parse(getComputedStyle(node).borderTopColor), background(node));
+    };
     return {
       muted: text('#status-detail'),
       placeholder: text('#results-search', '::placeholder'),
@@ -1135,6 +1149,9 @@ try {
       button: ratio(parse(getComputedStyle(document.querySelector('#scan')).color),
         parse(getComputedStyle(document.querySelector('#scan')).backgroundColor)),
       controlBorder: ratio(parse(getComputedStyle(document.querySelector('#results-search')).borderTopColor), page),
+      themeToggleBorder: outline('#theme-toggle'),
+      copyBorder: outline('.copy-group'),
+      clearBorder: outline('#clear-results'),
       focusRing: ratio(accent, page),
     };
   });
@@ -1144,12 +1161,14 @@ try {
     for (const key of ['muted', 'placeholder', 'positions', 'extras', 'keep', 'count', 'copy', 'button']) {
       assert.ok(values[key] >= 4.5, `${theme} ${key} contrast ${values[key].toFixed(2)}:1`);
     }
-    assert.ok(values.controlBorder >= 3, `${theme} control border contrast ${values.controlBorder.toFixed(2)}:1`);
+    for (const key of ['controlBorder', 'themeToggleBorder', 'copyBorder', 'clearBorder']) {
+      assert.ok(values[key] >= 3, `${theme} ${key} contrast ${values[key].toFixed(2)}:1`);
+    }
     assert.ok(values.focusRing >= 3, `${theme} focus ring contrast ${values.focusRing.toFixed(2)}:1`);
   }
   await setTheme('auto');
   // Forced-colors strips the filled action background; the block buttons keep a
-  // visible system border so the primary action stays recognizable.
+  // visible system border, and the primary action keeps a heavier one.
   await popup.emulateMedia({ forcedColors: 'active' });
   const highContrast = await popup.evaluate(() => {
     const border = selector => {
@@ -1162,6 +1181,8 @@ try {
     assert.equal(action.style, 'solid');
     assert.ok(parseFloat(action.width) >= 1);
   }
+  assert.equal(highContrast.scan.width, '2px', 'the primary action keeps a 2px forced-colors outline');
+  assert.equal(highContrast.clear.width, '1px', 'a secondary action keeps the 1px forced-colors outline');
   await popup.screenshot({ path: 'artifacts/ui-forced-colors.png', fullPage: true });
   await popup.emulateMedia({ forcedColors: 'none' });
   console.log('PASS: long/mixed-script names wrap without overflow or unsafe markup, RTL names keep direction, empty artists are skipped, and text/placeholder/controls/focus contrast passes in both themes with a forced-colors boundary');
@@ -1233,6 +1254,144 @@ try {
   assert.equal(await popup.locator('#duplicate-list li').count(), 0);
   await apple.evaluate(() => history.replaceState({}, '', '/us/library/playlist/p.fixture'));
   console.log('PASS: an idle pop-out notices when its tab leaves the playlist and recovers when it returns');
+
+
+  // The checks below run in a pop-out pinned to tab 1, so they follow tabs.onUpdated and onRemoved.
+  const openPinned = async (scenario, { delay = 25, path = '/us/library/playlist/p.fixture' } = {}) => {
+    await apple.evaluate(({ scenario, delay, path }) => {
+      window.scenario = scenario;
+      window.requests = [];
+      window.fixtureDelay = delay;
+      history.replaceState({}, '', path);
+    }, { scenario, delay, path });
+    await popup.goto(popupUrl + '?reset=1&tab=1');
+  };
+  const scanText = () => popup.locator('#scan').evaluate(el => el.hidden ? '(hidden)' : el.textContent);
+  const settled = () => popup.waitForFunction(() => {
+    const button = document.querySelector('#scan');
+    return button.hidden || !button.disabled;
+  });
+
+  // A playlist over the limit offers no scan, so a pop-out must notice the user trimming it.
+  await openPinned('huge');
+  await popup.getByRole('heading', { name: 'Playlist too large to scan', exact: true }).waitFor();
+  assert.equal(await scanText(), '(hidden)');
+  await apple.evaluate(() => { window.scenario = 'duplicates'; });
+  await tabEvent({ status: 'complete' });
+  await popup.getByRole('heading', { name: 'Ready to scan', exact: true }).waitFor();
+  assert.equal(await scanText(), 'Scan for duplicates');
+  await openPinned('duplicates');
+  await popup.getByRole('heading', { name: 'Ready to scan', exact: true }).waitFor();
+  await popup.locator('#scan').click();
+  await settled();
+  assert.equal(await scanText(), 'Scan again');
+  await apple.evaluate(() => { window.scenario = 'huge'; });
+  await popup.locator('#scan').click();
+  await settled();
+  assert.equal(await popup.locator('#status-code').textContent(), 'Error code: LIMIT');
+  assert.equal(await scanText(), '(hidden)', 'a limit hit mid-scan offers no scan');
+  assert.equal(await popup.locator('#duplicate-list li').count(), 1, 'the last scan stays visible');
+  await apple.evaluate(() => { window.scenario = 'duplicates'; });
+  await tabEvent({ url: 'https://music.apple.com/us/library/playlist/p.fixture' });
+  await popup.waitForFunction(() => document.querySelector('#scan').textContent === 'Scan again' && !document.querySelector('#scan').hidden);
+  assert.equal(await popup.locator('#status-title').textContent(), 'Showing last scan');
+  console.log('PASS: a pop-out offers a scan again once an over-limit playlist is trimmed, at connect and mid-scan');
+
+  // Events that arrive while connecting or scanning are replayed once the work finishes.
+  await openPinned('duplicates', { delay: 600 });
+  await popup.waitForFunction(() => document.querySelector('#status-title').textContent === 'Connecting to Apple Music…');
+  await apple.evaluate(() => history.pushState({}, '', '/us/library/playlist/p.other'));
+  await tabEvent({ url: 'https://music.apple.com/us/library/playlist/p.other' });
+  await popup.getByRole('heading', { name: 'Ready to scan', exact: true }).waitFor();
+  await popup.waitForFunction(() => !document.querySelector('#scan').disabled);
+  await popup.waitForTimeout(800);
+  assert.ok((await apple.evaluate(() => window.requests)).some(path => path.includes('p.other')),
+    'the pop-out reconnected to the playlist its tab moved to while it was connecting');
+  assert.equal(await scanText(), 'Scan for duplicates');
+  await openPinned('many', { delay: 150 });
+  await popup.getByRole('heading', { name: 'Ready to scan', exact: true }).waitFor();
+  await popup.locator('#scan').click();
+  await popup.waitForFunction(() => document.querySelector('#scan').textContent === 'Scanning…');
+  await apple.evaluate(() => history.pushState({}, '', '/us/browse'));
+  await tabEvent({ status: 'complete' });
+  await popup.getByRole('heading', { name: 'Open a playlist', exact: true }).waitFor();
+  assert.equal(await scanText(), '(hidden)', 'a navigation during a scan is followed once the scan ends');
+  console.log('PASS: a pop-out follows its tab even when the move happens during a connect or a scan');
+
+  // A closed tab can never be reconnected, so the pop-out says so and offers nothing to press.
+  await openPinned('duplicates');
+  await popup.getByRole('heading', { name: 'Ready to scan', exact: true }).waitFor();
+  await popup.evaluate(() => {
+    chrome.tabs.get = async () => { throw new Error('No tab with id: 1'); };
+    window.__tabRemoved.forEach(listener => listener(1));
+  });
+  await popup.getByRole('heading', { name: 'Apple Music tab closed', exact: true }).waitFor();
+  assert.equal(await popup.locator('#status-detail').textContent(),
+    'The Apple Music tab was closed. Open a playlist on music.apple.com, then open the extension from that tab.');
+  assert.equal(await popup.locator('#status').getAttribute('data-error'), 'false');
+  assert.equal(await popup.locator('#status-code').textContent(), 'Error code: TAB_CLOSED');
+  assert.equal(await popup.locator('#playlist-name').textContent(), 'No playlist open');
+  assert.equal(await scanText(), '(hidden)');
+  assert.equal(await popup.getByRole('button', { name: /Retry|Scan/ }).count(), 0);
+  await assertAccessible(popup, 'closed-tab state');
+  await popup.screenshot({ path: 'artifacts/ui-tab-closed.png' });
+  console.log('PASS: a pop-out whose Apple Music tab was closed shows a plain message with no button');
+
+  // Clear results ends the failed rescan it sat beside, so the button goes back to a first scan.
+  await openPinned('duplicates');
+  await popup.getByRole('heading', { name: 'Ready to scan', exact: true }).waitFor();
+  await popup.locator('#scan').click();
+  await settled();
+  await recordStatus(popup);
+  await apple.evaluate(() => { window.scenario = 'rate'; });
+  await popup.locator('#scan').click();
+  await settled();
+  assert.equal(await scanText(), 'Retry scan');
+  const announcedFailure = (await popup.evaluate(() => window.__announced)).filter(text => /^Scan failed/.test(text));
+  assert.ok(announcedFailure.length > 0, 'the failure is announced');
+  for (const text of announcedFailure) assert.doesNotMatch(text, /\.\./, 'an announcement has no doubled period');
+  assert.match(announcedFailure.at(-1), /Retry scan\.\nShowing your last scan.*extra copies\. Error code RATE_LIMIT\.$/s);
+  await popup.getByRole('button', { name: 'Clear results' }).click();
+  await popup.getByRole('heading', { name: 'Results cleared', exact: true }).waitFor();
+  assert.equal(await scanText(), 'Scan for duplicates');
+  console.log('PASS: Clear results resets a failed rescan, and announcements have no doubled period');
+
+  // The sticky controls grow as they wrap, so a focused row must clear their live height, not a fixed offset.
+  await openPinned('many', { delay: 5 });
+  await popup.getByRole('heading', { name: 'Ready to scan', exact: true }).waitFor();
+  await popup.locator('#scan').click();
+  await popup.waitForFunction(() => document.querySelectorAll('#duplicate-list li').length > 0);
+  await settled();
+  const underBar = () => popup.evaluate(() => {
+    const bar = document.querySelector('#results-controls').getBoundingClientRect().bottom;
+    const focused = document.activeElement;
+    const inList = !!focused?.closest('#duplicate-list');
+    return { inList, covered: inList && focused.getBoundingClientRect().top < bar - 0.5,
+      name: focused?.className || focused?.tagName, top: Math.round(focused?.getBoundingClientRect().top), bar: Math.round(bar) };
+  });
+  await popup.setViewportSize({ width: 380, height: 600 });
+  await popup.evaluate(() => document.querySelector('#show-more').scrollIntoView({ block: 'end' }));
+  await popup.locator('#show-more').focus();
+  let checked = 0;
+  for (let press = 0; press < 40; press++) {
+    await popup.keyboard.press('Shift+Tab');
+    const state = await underBar();
+    if (!state.inList) continue;
+    checked++;
+    assert.equal(state.covered, false, `Shift+Tab focus on ${state.name} sits under the sticky bar (top ${state.top}, bar ${state.bar})`);
+  }
+  assert.ok(checked >= 20, 'Shift+Tab walked through the list rows');
+  for (const width of [380, 300, 240]) {
+    await resizePopup(popup, { width, height: 600 });
+    await popup.evaluate(() => window.scrollTo(0, 0));
+    await popup.locator('#show-more').click();
+    const state = await underBar();
+    assert.equal(state.inList, true, 'Show more moves focus to the first new row');
+    assert.equal(state.covered, false, `Show more at ${width}px puts the first new row under the sticky bar (top ${state.top}, bar ${state.bar})`);
+    if (width === 240) assert.ok(state.bar > 150, 'the bar wraps taller in the narrowest pop-out, which is the case a fixed offset missed');
+  }
+  await resizePopup(popup, { width: 380, height: 640 });
+  console.log('PASS: focused rows clear the sticky controls at 380px, 300px and 240px');
 
   assert.deepEqual([...requestOrigins].sort(), ['https://duplicate-finder.test', 'https://music.apple.com'],
     'the popup and fixtures must not contact any other origin');

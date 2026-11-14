@@ -38,6 +38,15 @@ const policies: Record<ErrorCode, { message: string; recovery: Recovery }> = {
   INCOMPLETE: { message: "Apple Music's response changed or did not add up, so the scan is incomplete. No partial results were kept. Press Retry scan.", recovery: 'rescan' },
   INTERNAL: { message: internalFailure, recovery: 'rescan' },
   TAB_ACCESS: { message: 'The extension could not access this tab. Reload the Apple Music page, then press Retry connection.', recovery: 'reconnect' },
+  TAB_CLOSED: { message: 'The Apple Music tab was closed. Open a playlist on music.apple.com, then open the extension from that tab.', recovery: 'navigate' },
+};
+
+// Where a rescan-only message would be wrong before anything has been scanned.
+const connectMessages: Partial<Record<ErrorCode, string>> = {
+  LIMIT: 'This playlist is larger than the extension can scan.',
+  DEADLINE: 'Apple Music took too long to respond. Check your connection, then press Retry connection.',
+  FORMAT: 'Apple Music returned an unexpected response. Press Retry connection.',
+  INCOMPLETE: "Apple Music's response changed or did not add up. Press Retry connection.",
 };
 
 // Chrome's injection rejections carry no stable code, only localized-free prefixes.
@@ -83,11 +92,12 @@ export function errorRecovery(error: unknown): Recovery {
 
 /**
  * With no connection yet there is nothing to rescan, so a retryable failure is retried
- * by reconnecting and the message names that control instead.
+ * by reconnecting and the message names that control instead. Messages about a scan
+ * that never started (partial results, ten-minute limit) get connect-time wording.
  */
 export function connectFailure(error: unknown): { message: string; recovery: Recovery } {
   const recovery = errorRecovery(error);
-  const message = errorMessage(error);
+  const message = (error instanceof ScanError && connectMessages[error.code]) || errorMessage(error);
   if (recovery !== 'rescan') return { message, recovery };
   return { message: message.replace(recoveryLabel.rescan!, recoveryLabel.reconnect!), recovery: 'reconnect' };
 }
