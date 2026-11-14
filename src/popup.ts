@@ -78,7 +78,7 @@ let busy = false;
 // How the last failure can be recovered from, straight from the error policy table.
 let failure: Recovery | null = null;
 // The playlist the popup currently describes; a pop-out compares it with its tab when it regains focus.
-let shownPlaylistId: string | null = null;
+let shownPlaylist: PlaylistRef | null = null;
 let groups: DuplicateGroup[] = [];
 let visible: DuplicateGroup[] = [];
 let displayed = 0;
@@ -515,6 +515,7 @@ function cacheCurrent(playlist: PlaylistRef, info: PlaylistInfo, countVerified: 
   const cached: CachedScan = {
     version: 1,
     playlistId: playlist.id,
+    storefront: playlist.kind === 'catalog' ? playlist.storefront : null,
     playlistName: info.name,
     scannedAt,
     groups,
@@ -631,7 +632,7 @@ async function initialize(): Promise<void> {
   const refocus = document.activeElement === scan;
   busy = true;
   failure = null;
-  shownPlaylistId = null;
+  shownPlaylist = null;
   // A new connection may target a different playlist; never carry the previous
   // playlist's results into it. A cache for this playlist is restored below.
   lastCompleted = null;
@@ -659,11 +660,11 @@ async function initialize(): Promise<void> {
     connectedTabId = tab.id;
     updatePopOut();
     const playlist = detectPlaylist(tab.url ?? '');
-    shownPlaylistId = playlist.id;
+    shownPlaylist = playlist;
     const candidate = createBrowserSource(tab.id, playlist);
     // A cached scan does not need the player, so paint it before the round trip:
     // a slow, signed-out or unreachable MusicKit must not hide existing results.
-    const cached = loadCachedScan(playlist.id);
+    const cached = loadCachedScan(playlist.id, playlist.storefront);
     if (cached) {
       const restored = restoreCached(cached);
       showPlaylistName(cached.playlistName, cached.playlistName);
@@ -724,10 +725,11 @@ async function recheckPinnedTab(): Promise<void> {
   const pinned = pinnedTabId();
   if (pinned === null) return;
   if (busy) { recheckPending = true; return; }
-  let current: string | null;
-  try { current = detectPlaylist((await chrome.tabs.get(pinned)).url ?? '').id; } catch { current = null; }
+  let current: PlaylistRef | null;
+  try { current = detectPlaylist((await chrome.tabs.get(pinned)).url ?? ''); } catch { current = null; }
   if (busy) { recheckPending = true; return; }
-  if (current !== shownPlaylistId || failure === 'none') await initialize();
+  if (current?.id !== shownPlaylist?.id || current?.kind !== shownPlaylist?.kind ||
+    (current?.kind === 'catalog' && current.storefront !== shownPlaylist?.storefront) || failure === 'none') await initialize();
 }
 
 /** An event that arrived while connecting or scanning described the page before that work finished. */

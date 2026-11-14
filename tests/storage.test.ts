@@ -198,3 +198,11 @@ test('an unknown or corrupt theme preference falls back to auto', () => {
   values.set('amdf:theme:v1', '');
   assert.equal(loadThemePreference(), 'auto');
 });
+
+test('catalog cache is scoped to a known storefront', () => {
+  const catalog = { ...scan, playlistId: 'pl.fixture', storefront: 'us' };
+  assert.equal(saveCachedScan(catalog), true);
+  assert.deepEqual(loadCachedScan('pl.fixture', 'us'), catalog);
+  assert.equal(loadCachedScan('pl.fixture', 'gb'), null);
+  assert.equal(loadCachedScan('pl.fixture', null), null);
+});

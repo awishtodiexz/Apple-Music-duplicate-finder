@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.1](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.5.1) (2026-11-14)
+
+- Keep catalog playlist results and pop-out connections scoped to their storefront.
+
 ## [1.5](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.5) (2026-11-14)
 
 ### Added

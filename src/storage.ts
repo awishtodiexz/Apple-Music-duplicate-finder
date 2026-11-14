@@ -21,6 +21,7 @@ const playlistIdPattern = /^(?:p|pl)\.[A-Za-z0-9-]{1,126}$/;
 export interface CachedScan {
   version: 1;
   playlistId: string;
+  storefront?: string | null;
   playlistName: string;
   scannedAt: number;
   groups: DuplicateGroup[];
@@ -112,7 +113,8 @@ function isCachedScan(value: unknown): value is CachedScan {
     !isCount(totalTracks) || totalTracks > maxTracks || unidentified > totalTracks ||
     typeof scan.countVerified !== 'boolean' || typeof scan.modificationChecked !== 'boolean' ||
     typeof scan.notes !== 'string' || scan.notes.length > maxNotes ||
-    !optionalText(scan.modified) || !optionalText(scan.revision)) return false;
+    !optionalText(scan.modified) || !optionalText(scan.revision) ||
+    !(scan.storefront == null || /^[a-z]{2}$/.test(scan.storefront))) return false;
   // Every track is either unidentified or belongs to exactly one retained group,
   // so these totals bound the whole cache and catch inconsistent copies/counts.
   const identities = new Set<string>();
@@ -136,7 +138,7 @@ function discardCached(store: Storage): void {
 }
 
 /** The last completed scan is cached locally so closing the popup does not lose it. */
-export function loadCachedScan(playlistId: string): CachedScan | null {
+export function loadCachedScan(playlistId: string, storefront: string | null = null): CachedScan | null {
   const store = storage();
   if (!store) return null;
   try {
@@ -146,7 +148,8 @@ export function loadCachedScan(playlistId: string): CachedScan | null {
     let value: unknown;
     try { value = JSON.parse(raw); } catch { discardCached(store); return null; }
     if (!isCachedScan(value)) { discardCached(store); return null; }
-    return value.playlistId === playlistId ? value : null;
+    return value.playlistId === playlistId &&
+      (!playlistId.startsWith('pl.') || (storefront !== null && value.storefront === storefront)) ? value : null;
   } catch {
     return null;
   }
