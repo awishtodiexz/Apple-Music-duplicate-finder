@@ -9,10 +9,11 @@ await cp('public', 'dist', { recursive: true });
 // The manifest version is derived from package.json so a release only has one
 // place to bump; validate-build still asserts the packaged values agree.
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
+const version = pkg.version.replace(/\.0$/, '');
 const manifestPath = 'dist/manifest.json';
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-if (manifest.version !== pkg.version) {
-  manifest.version = pkg.version;
+if (manifest.version !== version) {
+  manifest.version = version;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 

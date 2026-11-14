@@ -9,7 +9,7 @@ import { fixture } from './fixtures/player.mjs';
 // No chrome.* APIs, activeTab grants, or script injection are mocked in this suite.
 await mkdir('.cache', { recursive: true });
 const profile = await mkdtemp(resolve('.cache/extension-profile-'));
-const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+const { version } = JSON.parse(await readFile('public/manifest.json', 'utf8'));
 const timeoutMs = Number(process.env.AMDF_TEST_TIMEOUT_MS ?? 30_000);
 if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1_000) throw new Error('AMDF_TEST_TIMEOUT_MS must be at least 1000');
 let context;

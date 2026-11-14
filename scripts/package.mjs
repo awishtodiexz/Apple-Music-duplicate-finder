@@ -7,7 +7,7 @@ const files = {};
 await validateBuild();
 const { version } = JSON.parse(await readFile('dist/manifest.json', 'utf8'));
 const packageInfo = JSON.parse(await readFile('package.json', 'utf8'));
-if (version !== packageInfo.version) throw new Error('Manifest and package versions must match');
+if (version !== packageInfo.version.replace(/\.0$/, '')) throw new Error('Manifest and package versions must match');
 for (const name of extensionFiles) {
   files[name] = [new Uint8Array(await readFile('dist/' + name)), { mtime: new Date(2000, 0, 1) }];
 }

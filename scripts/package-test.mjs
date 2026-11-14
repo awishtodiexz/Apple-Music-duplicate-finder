@@ -5,7 +5,8 @@ import { spawnSync } from 'node:child_process';
 import { unzipSync } from 'fflate';
 import { extensionFiles } from './validate-build.mjs';
 
-const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+const { version: packageVersion } = JSON.parse(await readFile('package.json', 'utf8'));
+const version = packageVersion.replace(/\.0$/, '');
 const name = `apple-music-duplicate-finder-v${version}.zip`;
 const path = 'artifacts/' + name;
 const archive = await readFile(path);
@@ -18,7 +19,7 @@ function run(script, stdio = 'inherit') {
   if (result.error) throw result.error;
   return result;
 }
-assert.match(checksum, /^[a-f0-9]{64}  apple-music-duplicate-finder-v\d+\.\d+\.\d+\.zip\n$/,
+assert.match(checksum, /^[a-f0-9]{64}  apple-music-duplicate-finder-v\d+\.\d+(?:\.\d+)?\.zip\n$/,
   'checksum sidecar must be a single SHA-256 line naming the archive');
 verifyChecksum(archive, checksum);
 const entries = unzipSync(archive);

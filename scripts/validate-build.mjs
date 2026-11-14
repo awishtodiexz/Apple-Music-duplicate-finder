@@ -11,8 +11,8 @@ export async function validateBuild() {
   const pkg = JSON.parse(await readFile('package.json', 'utf8'));
   const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
   assert.equal(manifest.manifest_version, 3);
-  assert.match(manifest.version, /^\d+\.\d+\.\d+$/, 'manifest version must be semver');
-  assert.equal(manifest.version, pkg.version);
+  assert.match(manifest.version, /^\d+\.\d+(?:\.\d+)?$/, 'manifest version must have two or three numeric components');
+  assert.equal(manifest.version, pkg.version.replace(/\.0$/, ''));
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.equal(manifest.name, 'Apple Music Duplicate Finder');
