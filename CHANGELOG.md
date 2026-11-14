@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.5.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.5.0) (2026-11-14)
+## [1.5](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.5) (2026-11-14)
 
 ### Added
 
