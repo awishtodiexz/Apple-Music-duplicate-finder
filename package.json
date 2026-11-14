@@ -6,13 +6,13 @@
   "description": "Read-only, local duplicate detection for the current Apple Music playlist.",
   "license": "MIT",
   "author": "awishtodiexz",
-  "homepage": "https://github.com/awishtodiexz/Apple-Music-duplicate-finder#readme",
+  "homepage": "https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/awishtodiexz/Apple-Music-duplicate-finder.git"
+    "url": "git+https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder.git"
   },
   "bugs": {
-    "url": "https://github.com/awishtodiexz/Apple-Music-duplicate-finder/issues"
+    "url": "https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/issues"
   },
   "scripts": {
     "build": "npm run typecheck && node scripts/build.mjs",

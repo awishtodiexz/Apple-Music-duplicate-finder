@@ -4,7 +4,7 @@ Only the latest release, currently 1.6, receives fixes.
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately through [GitHub's advisory form](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/security/advisories/new), not in a public issue.
+Please report vulnerabilities privately through [GitHub's advisory form](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/security/advisories/new), not in a public issue.
 
 Include the extension version, what an attacker could do, and steps to reproduce using made-up data. Never include passwords, cookies, tokens or the contents of your own playlists.
 

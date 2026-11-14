@@ -1,17 +1,17 @@
 # Changelog
 
-## [1.6](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.6) (2026-11-14)
+## [1.6](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.6) (2026-11-14)
 
 - Simplify the popup into results, cleanup, and fresh-scan verification views, with one main extra-copy count, expandable song positions, and secondary tools in disclosures.
 - Start scans in a separate window by default, with a saved option to scan in the toolbar popup.
 - Add a removal checklist ordered from the highest playlist position to the lowest, with checkmarks and scan timestamps.
 - Compare successful rescans with the previous completed scan, showing extra-copy changes, new repeated songs, and songs no longer repeated.
 
-## [1.5.1](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.5.1) (2026-11-14)
+## [1.5.1](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.5.1) (2026-11-14)
 
 - Keep catalog playlist results and pop-out connections scoped to their storefront.
 
-## [1.5](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.5) (2026-11-14)
+## [1.5](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.5) (2026-11-14)
 
 ### Added
 
@@ -44,7 +44,7 @@
 - **Cancel scan** no longer offers **Retry scan**.
 - Focused rows are no longer hidden under the sticky toolbar.
 
-## [1.4.2](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.4.2) (2026-11-13)
+## [1.4.2](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.4.2) (2026-11-13)
 
 ### Changed
 
@@ -53,7 +53,7 @@
 - **Clear results**, **Copy** and **Show all positions** are smaller outlined buttons, and links are no longer underlined outside of sentences.
 - The search field has a search icon, and both dropdowns have matching arrows.
 
-## [1.4.1](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.4.1) (2026-11-12)
+## [1.4.1](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.4.1) (2026-11-12)
 
 ### Changed
 
@@ -61,7 +61,7 @@
 - Shorter, clearer `INSTALL.txt` in the download.
 - Rewritten README and documentation.
 
-## [1.4.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.4.0) (2026-11-12)
+## [1.4.0](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.4.0) (2026-11-12)
 
 ### Fixed
 
@@ -70,7 +70,7 @@
 - Previous results, search and sort stay visible during a rescan instead of disappearing until it finishes.
 - Keyboard focus moves between **Scan** and **Cancel scan** instead of getting lost.
 
-## [1.3.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.3.0) (2026-11-10)
+## [1.3.0](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.3.0) (2026-11-10)
 
 ### Added
 
@@ -91,7 +91,7 @@
 - Expanding a huge position list no longer drops focus or stretches the popup.
 - Layout fixes for the footer and the results title at narrow widths.
 
-## [1.2.5](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.5) (2026-11-08)
+## [1.2.5](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.2.5) (2026-11-08)
 
 ### Added
 
@@ -116,7 +116,7 @@
 - The badge no longer carries over to a different playlist.
 - Search no longer breaks on Turkish and similar locales.
 
-## [1.2.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.2.0) (2026-11-08)
+## [1.2.0](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.2.0) (2026-11-08)
 
 ### Added
 
@@ -133,7 +133,7 @@
 
 - Unexpected errors are no longer reported as network failures.
 
-## [1.1.2](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.1.2) (2026-11-07)
+## [1.1.2](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.1.2) (2026-11-07)
 
 - Retry network errors, timeouts and rate limits instead of failing the whole scan.
 - Time out a stuck page after 30 seconds instead of waiting forever.
@@ -142,19 +142,19 @@
 - Fewer screen-reader announcements while a scan is running.
 - Tighter content security policy and a smaller bundle.
 
-## [1.1.1](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.1.1) (2026-11-05)
+## [1.1.1](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.1.1) (2026-11-05)
 
 - Use the playlist's own storefront for catalog playlists.
 - Fix "1 more songs" wording.
 - Tighter content security policy.
 
-## [1.1.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.1.0) (2026-10-27)
+## [1.1.0](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.1.0) (2026-10-27)
 
 - Cancel a running scan.
 - Scan limits and protection against late responses.
 - Warnings when Apple can't confirm the playlist didn't change during a scan.
 - Reproducible release ZIPs with SHA-256 checksums.
 
-## [1.0](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/tag/v1.0) (2026-10-24)
+## [1.0](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/tag/v1.0) (2026-10-24)
 
 First release.

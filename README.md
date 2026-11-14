@@ -6,9 +6,9 @@
 
 Find the songs that show up more than once in your Apple Music playlists.
 
-[**Download v1.6**](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.6/apple-music-duplicate-finder-v1.6.zip) · [Install](#install) · [Privacy](#privacy)
+[**Download v1.6**](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/download/v1.6/apple-music-duplicate-finder-v1.6.zip) · [Install](#install) · [Privacy](#privacy)
 
-[![CI](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/actions/workflows/ci.yml/badge.svg)](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/actions/workflows/ci.yml)
+[![CI](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/actions/workflows/ci.yml/badge.svg)](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <picture>
@@ -35,7 +35,7 @@ Find the songs that show up more than once in your Apple Music playlists.
 
 Works in Chrome and Edge 111 or newer. It isn't on the Chrome Web Store, so you load it manually:
 
-1. [Download the ZIP](https://github.com/awishtodiexz/Apple-Music-duplicate-finder/releases/download/v1.6/apple-music-duplicate-finder-v1.6.zip) and extract it to a folder you'll keep.
+1. [Download the ZIP](https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder/releases/download/v1.6/apple-music-duplicate-finder-v1.6.zip) and extract it to a folder you'll keep.
 2. Go to `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode**.
 3. Click **Load unpacked** and pick the extracted folder.
 

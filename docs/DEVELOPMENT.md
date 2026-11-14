@@ -5,8 +5,8 @@
 You need Node.js 22.8+, 24 or 26.
 
 ```sh
-git clone https://github.com/awishtodiexz/Apple-Music-duplicate-finder.git
-cd Apple-Music-duplicate-finder
+git clone https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder.git
+cd Apple-Music-Playlist-Duplicate-Finder
 npm ci
 npx playwright install chromium
 ```

@@ -19,5 +19,5 @@ Extract the new ZIP over this folder and click Reload on the extensions page.
 The extension only reads your playlist. It never changes your music, and
 nothing leaves your browser.
 
-https://github.com/awishtodiexz/Apple-Music-duplicate-finder
+https://github.com/awishtodiexz/Apple-Music-Playlist-Duplicate-Finder
 Not affiliated with Apple Inc.
