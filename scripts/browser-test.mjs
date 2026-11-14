@@ -774,7 +774,8 @@ try {
         complete: rows.filter(row => row.getBoundingClientRect().bottom <= innerHeight).length,
         oneLine: rows[1].querySelector('.song').getBoundingClientRect().height < 24 };
     });
-    assert.ok(compact.firstRowTop <= 300, `first row starts at ${compact.firstRowTop}px`);
+    // 292px with Windows fonts, about 308px with the Linux CI fonts; the layout before the redesign was 485px or more.
+    assert.ok(compact.firstRowTop <= 320, `first row starts at ${compact.firstRowTop}px`);
     assert.ok(compact.oneLine && compact.oneLineRow <= 64, `a one-line row is ${compact.oneLineRow}px tall`);
     assert.ok(compact.complete >= 3, `${compact.complete} complete rows fit in the viewport`);
     await assertAccessible(popup, `${apiMode} many results`);

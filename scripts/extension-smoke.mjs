@@ -184,7 +184,8 @@ try {
     assert.equal(await popup.evaluate(() => document.querySelector('.counts').textContent), '3 copies · 2 extra');
     // The real toolbar popup shows the first result near the top instead of below the fold.
     const firstRowTop = await popup.evaluate(() => Math.round(document.querySelector('#duplicate-list li').getBoundingClientRect().top));
-    assert.ok(firstRowTop <= 300, `first result row starts at ${firstRowTop}px in the real popup`);
+    // Font metrics differ by platform (292px on Windows, about 308px on Linux); the old layout was 485px or more.
+    assert.ok(firstRowTop <= 320, `first result row starts at ${firstRowTop}px in the real popup`);
     assert.equal(await popup.evaluate(() => document.querySelectorAll('#results-scroll[tabindex], #results-scroll[role]').length), 0);
     assert.equal(await popup.evaluate(() => document.querySelectorAll('img').length), 0);
     // Connect metadata (reused as the scan baseline) + 3 track pages + validation metadata.
